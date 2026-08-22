@@ -1,30 +1,24 @@
-# ZamexCards Price Checker v9.6
+# ZamexCards Price Checker v9.7
 
-Scanner gebruikt nu drie onafhankelijke herkenningssignalen:
+Belangrijkste scannerfixes:
 
-1. Kaartnaam bovenaan.
-2. Volledig kaartnummer + totaal, bijvoorbeeld 053/084.
-3. Setcode, wanneer die leesbaar op de kaart staat.
+- OCR bovenkant en onderkant worden NIET meer tegelijk op dezelfde Tesseract-worker uitgevoerd.
+  Dit veroorzaakte mobiele herkenningsproblemen.
+- Naam + exact kaartnummer kan nu direct een veilige match zijn als die combinatie uniek is.
+- Nummer + totaal (bijv. 047/094) is een tweede sterke route.
+- Setcode + nummer is een derde sterke route.
+- Ontbreekt set-total metadata in een kort database-record, dan wordt voor maximaal 12 kandidaten
+  de volledige kaartdata opgehaald.
+- Candidate search probeert in volgorde:
+  1. setcode + naam + nummer
+  2. naam + nummer
+  3. nummer
+  4. naam
+- OCR-zones zijn iets ruimer gemaakt voor schuin gehouden kaarten.
+- Nooit automatisch de eerste kaart met hetzelfde losse nummer kiezen.
 
-Een kaart wordt alleen automatisch gekozen wanneer minimaal 2 van de 3 signalen overeenkomen.
+Dit betekent dat een kaart zoals Vullaby met duidelijke naam bovenaan en collector number onderaan
+ook gevonden kan worden wanneer de setcode niet goed door OCR wordt gelezen.
 
-Voor oudere kaarten met alleen een grafisch setsymbool:
-- het symbool hoeft niet letterlijk door OCR gelezen te worden;
-- naam + kaartnummer + totaal aantal kaarten worden gebruikt om de set uit de kaartdatabase af te leiden.
-
-Ruwe OCR-onzin wordt niet meer rechtstreeks in de Price Checker gezet.
-De velden worden pas ingevuld na een bevestigde database-match.
-
-Uitvoering:
-- databasevarianten worden eerst gecontroleerd;
-- Basic/Normaal, Holo en Reverse Holo worden conservatief visueel geschat;
-- Poké Ball / Master Ball / stamps worden alleen automatisch gekozen als de database geen twijfel laat;
-- bij twijfel blijft Uitvoering op Automatisch.
-
-Camera:
-- + en - zoomknoppen;
-- echte hardwarezoom indien ondersteund;
-- continuous autofocus indien ondersteund;
-- normale telefoon-autofocus is fallback.
-
-Upload alleen index.html naar GitHub Pages.
+Een browser-only scanner kan niet letterlijk 100% van alle mogelijke kaarten onder alle lichtomstandigheden
+garanderen, maar deze versie gebruikt nu de betrouwbare combinaties in plaats van één fragiel OCR-resultaat.

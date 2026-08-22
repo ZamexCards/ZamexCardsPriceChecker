@@ -24,7 +24,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.6 three-signal scanner + zoom + autofocus -->
+<!-- ZamexCards Price Checker v9.7 robust sequential OCR + layered identity matching -->
 </head>
 <body>
 <div class="app">
@@ -1388,8 +1388,8 @@ function zcScannerCrop(source,part){
   const c=document.createElement('canvas');
 
   let sy=0,sh=h;
-  if(part==='top'){sy=0;sh=h*.32}
-  else if(part==='bottom'){sy=h*.68;sh=h*.32}
+  if(part==='top'){sy=0;sh=h*.38}
+  else if(part==='bottom'){sy=h*.60;sh=h*.40}
 
   // Smaller working width = much faster OCR on mobile.
   const targetW=part==='full'?900:1050;
@@ -1429,9 +1429,9 @@ function zcParseTopText(text=''){
 
     s=s.replace(/^[^A-Za-z0-9éÉ]+|[^A-Za-z0-9éÉ.!'♀♂ -]+$/g,'').trim();
 
-    if(s.length<3 || s.length>36 || banned.test(s))continue;
+    if(s.length<2 || s.length>42 || banned.test(s))continue;
     const letters=(s.match(/[A-Za-zéÉ]/g)||[]).length;
-    if(letters<3)continue;
+    if(letters<2)continue;
     if(s.split(/\s+/).length>6)continue;
     if(/^[A-Z]{1,2}\s+[A-Za-z]?\s*\d+$/i.test(s))continue;
 
@@ -1484,12 +1484,16 @@ async function zcRecognizeCanvas(canvas,psm='6',mode='general'){
 }
 
 async function zcSmartRecognizeSource(source,isAuto=false){
-  $('scanStatus').textContent='Naam lezen…';
-  const topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'6','name');
+  // IMPORTANT: one Tesseract worker must not receive two recognize jobs at once.
+  // Do the small top and bottom regions sequentially for stability on mobile.
+  $('scanStatus').textContent='Kaartnaam lezen…';
+  const topCanvas=zcScannerCrop(source,'top');
+  const topText=await zcRecognizeCanvas(topCanvas,'6','name');
   const name=zcParseTopText(topText);
 
-  $('scanStatus').textContent='Kaartnummer en set lezen…';
-  const bottomText=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6','number');
+  $('scanStatus').textContent='Kaartnummer lezen…';
+  const bottomCanvas=zcScannerCrop(source,'bottom');
+  const bottomText=await zcRecognizeCanvas(bottomCanvas,'6','number');
   const bottom=zcParseBottomText(bottomText);
 
   return {
@@ -1634,7 +1638,7 @@ async function zcInferScannedCandidates(rec){
     const r=await zcResolveSetFromCatalog(rec.setCode);
     if(r?.tcgdexId){
       const parsed={
-        name:'',
+        name:rec.name||'',
         setQuery:rec.setCode,
         setCode:String(rec.setCode).toUpperCase(),
         setId:r.tcgdexId,
@@ -1646,18 +1650,26 @@ async function zcInferScannedCandidates(rec){
     }
   }
 
-  // Older cards: infer set from name + number + printed total.
-  if(!cards.length){
-    cards=await zcGlobalCardSearch(zcParseSearch(rec.name||'','',rec.number||''),'');
-    if(!cards.length && rec.number){
-      cards=await zcGlobalCardSearch(zcParseSearch('','',rec.number),'');
-    }
+  // Exact OCR name + number is the best generic lookup.
+  if(!cards.length && rec.name && rec.number){
+    cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',rec.number),'');
   }
 
-  if(rec.total){
+  // Number-only fallback, then filter with name/total later.
+  if(!cards.length && rec.number){
+    cards=await zcGlobalCardSearch(zcParseSearch('','',rec.number),'');
+  }
+
+  // Name-only fallback for cards where the collector number OCR failed.
+  if(!cards.length && rec.name){
+    cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',''),'');
+  }
+
+  if(rec.total && cards.length){
     const t=zcNormCardNumber(rec.total);
-    const filtered=cards.filter(c=>zcNormCardNumber(zcSetTotalFromCard(c))===t);
-    if(filtered.length)cards=filtered;
+    const withKnownTotal=cards.filter(c=>zcSetTotalFromCard(c));
+    const exact=withKnownTotal.filter(c=>zcNormCardNumber(zcSetTotalFromCard(c))===t);
+    if(exact.length)cards=exact;
   }
 
   return cards;
@@ -1717,12 +1729,83 @@ function zcResolveScannedFinish(card,source){
   return 'Automatisch';
 }
 
+
+function zcExactNameNumber(rec,card){
+  const rn=zcNormCardNumber(rec?.number||'');
+  const cn=zcNormCardNumber(card?.number||'');
+  const nameSim=zcNameSimilarity(rec?.name||'',card?.name||'');
+  return !!rn && rn===cn && nameSim>=.90;
+}
+
+function zcExactNumberTotal(rec,card){
+  const rn=zcNormCardNumber(rec?.number||'');
+  const cn=zcNormCardNumber(card?.number||'');
+  const rt=zcNormCardNumber(rec?.total||rec?.printedTotal||'');
+  const ct=zcNormCardNumber(zcSetTotalFromCard(card));
+  return !!rn && rn===cn && !!rt && !!ct && rt===ct;
+}
+
+function zcExactSetCodeNumber(rec,card){
+  const rn=zcNormCardNumber(rec?.number||'');
+  const cn=zcNormCardNumber(card?.number||'');
+  if(!rn || rn!==cn || !rec?.setCode)return false;
+  const rs=String(rec.setCode).toUpperCase();
+  const vals=[card.setCode,card.ptcgoCode,card.setId,card.pokemonSetId]
+    .filter(Boolean).map(x=>String(x).toUpperCase());
+  return vals.includes(rs);
+}
+
+async function zcFetchFullCandidateSetInfo(card){
+  // Some brief card records do not contain set totals.
+  // Fetch full TCGdex card once so collector-total comparison can still work.
+  if(zcSetTotalFromCard(card))return card;
+  try{
+    const id=card?.id;
+    if(!id)return card;
+    for(const lang of [...new Set([...zcLanguageChain(),...ZC_ALL_TCGDEX_LANGS])]){
+      try{
+        const full=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`,5000);
+        if(full?.id){
+          const enriched=zcTcgdexToResult(full);
+          return {...card,...enriched};
+        }
+      }catch(e){}
+    }
+  }catch(e){}
+  return card;
+}
+
 async function zcFindScannedCard(recognized){
   if(!recognized?.name && !recognized?.number)return [];
 
-  const candidates=await zcInferScannedCandidates(recognized);
+  let candidates=await zcInferScannedCandidates(recognized);
   if(!candidates.length)return [];
 
+  // Enrich a small candidate set so printed set totals are available when possible.
+  if(recognized.total && candidates.length<=12){
+    candidates=await Promise.all(candidates.map(zcFetchFullCandidateSetInfo));
+  }
+
+  // Strong route A: exact name + exact card number.
+  // If this combination is unique, it is safe even if set-total metadata is missing.
+  if(recognized.name && recognized.number){
+    const exactNameNumber=candidates.filter(c=>zcExactNameNumber(recognized,c));
+    if(exactNameNumber.length===1)return exactNameNumber;
+  }
+
+  // Strong route B: exact collector number numerator + denominator.
+  if(recognized.number && recognized.total){
+    const exactCollector=candidates.filter(c=>zcExactNumberTotal(recognized,c));
+    if(exactCollector.length===1)return exactCollector;
+  }
+
+  // Strong route C: exact setcode + number.
+  if(recognized.setCode && recognized.number){
+    const exactSetNumber=candidates.filter(c=>zcExactSetCodeNumber(recognized,c));
+    if(exactSetNumber.length===1)return exactSetNumber;
+  }
+
+  // Score all candidates. Two independent strong signals still wins.
   const ranked=candidates
     .map(c=>({c,...zcScanIdentityScore(recognized,c)}))
     .sort((a,b)=>b.score-a.score);
@@ -1730,13 +1813,18 @@ async function zcFindScannedCard(recognized){
   const best=ranked[0],second=ranked[1];
   if(!best)return [];
 
-  // Require at least 2 of 3 independent signals.
   const gap=second?best.score-second.score:999;
-  if(best.signals>=2 && best.score>=75 && gap>=15){
-    return [best.c];
-  }
+  if(best.signals>=2 && best.score>=70 && gap>=12)return [best.c];
 
-  return ranked.filter(x=>x.score>=Math.max(25,best.score-12)).slice(0,10).map(x=>x.c);
+  // If OCR name is very close and number is exact, allow a unique high-confidence match.
+  const close=ranked.filter(x=>
+    zcNormCardNumber(x.c.number||'')===zcNormCardNumber(recognized.number||'') &&
+    zcNameSimilarity(recognized.name||'',x.c.name||'')>=.78
+  );
+  if(close.length===1)return [close[0].c];
+
+  // Never silently choose the first same-number card.
+  return ranked.filter(x=>x.score>=Math.max(20,best.score-15)).slice(0,10).map(x=>x.c);
 }
 
 async function zcApplyScannedCard(card,sourceImage=null){
@@ -1998,8 +2086,8 @@ async function scanImage(data,isAuto=false){
       ocrBusy=false;
 
       // Faster burst: several frames, then keep trying at a calmer pace.
-      if(autoScanAttempts<6)scheduleAutoScan(autoScanAttempts<3?450:700);
-      else $('scanStatus').textContent='Nog geen zekere match. Gebruik “Scan nu” of kies een scherpe foto.';
+      if(autoScanAttempts<8)scheduleAutoScan(autoScanAttempts<4?500:800);
+      else $('scanStatus').textContent='Nog geen zekere match. Houd de kaart heel even stil of gebruik Scan nu.';
       return;
     }
 
