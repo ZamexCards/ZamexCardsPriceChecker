@@ -1,14 +1,11 @@
-# ZamexCards Price Checker v9.4 – camera start fix
+# ZamexCards Price Checker v9.5
 
-Fix voor zwart camerascherm op Android/Samsung:
+Belangrijkste fixes:
+- Set / setcode dropdown volledig hersteld.
+- Resultatenbalk hersteld.
+- Jouw kaartenlijst-container hersteld.
+- Scanner progress-element hersteld. Dit ontbrekende element veroorzaakte een JavaScript-fout voordat de camera überhaupt werd aangevraagd.
+- Camera-start vereenvoudigd voor Android/Samsung: eerst camera, pas daarna OCR.
+- Rear camera wordt eerst geprobeerd; video:true is de fallback.
 
-- OCR start niet meer tegelijk met de camera.
-- Eerst wordt de camera volledig geopend en zichtbaar gemaakt.
-- Daarna pas wordt OCR op de achtergrond voorbereid.
-- Eerste camera-aanvraag gebruikt lichte 1280x720 constraints.
-- Bij timeout volgt automatisch een eenvoudigere rear-camera aanvraag.
-- Als dat nog niet werkt, volgt een `video:true` fallback.
-- `video.srcObject` wordt bij sluiten volledig geleegd, zodat Android de camera niet geblokkeerd houdt.
-- Autofocus/exposure krijgt ongeveer 1 seconde om te stabiliseren voordat automatisch scannen begint.
-
-Upload alleen index.html naar GitHub Pages.
+De dropdown behoudt de taalafhankelijke sets, officiële setcodes en release-sortering uit eerdere versies.

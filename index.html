@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.4 Android camera-start fix -->
+<!-- ZamexCards Price Checker v9.5 restored dropdown + Android camera fix -->
 </head>
 <body>
 <div class="app">
@@ -44,7 +44,7 @@
   <div class="field set-combobox">
   <label>Set / setcode</label>
   <input id="set" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="setDropdown" placeholder="Typ setcode of kies een set…">
-  
+  <div id="setDropdown" class="set-dropdown" role="listbox"></div>
 </div>
   <div class="field"><label>Kaartnummer</label><input id="number" placeholder="bijv. 199 of TG14"></div>
 </div>
@@ -95,12 +95,12 @@
 
 <div class="workspace">
 <main class="main">
-  
+  <div class="results-strip" id="resultsStrip"></div>
   <section class="panel detail" id="detailPanel"><div class="placeholder"><strong>Zoek een kaart of scan hem met je mobiel.</strong><br>De gevonden kaart en prijsinformatie verschijnen hier.</div></section>
 </main>
 <aside class="panel list-panel" id="favoritesPanel">
   <div class="section-title"><h2>💚 Jouw kaartenlijst</h2><div class="count"><span id="uniqueCount">0</span> soorten / <span id="favCount">0</span> kaarten</div></div>
-  
+  <div id="favorites"></div>
   <div class="summary"><div class="sum-row"><span>Totaal (<span id="totalQty">0</span> kaarten)</span><strong id="grandTotal">€ 0,00</strong></div><div class="sum-row discount"><span>80% van totaal</span><strong id="eightyTotal">€ 0,00</strong></div></div>
   <div class="list-tools"><button class="btn danger sm" id="clearAll">🗑 Clear all</button></div>
 </aside>
@@ -120,11 +120,12 @@
     <button class="btn" id="galleryBtn">🖼 Uit galerij kiezen</button>
     <button class="btn ghost hidden" id="retryBtn">↻ Opnieuw</button>
   </div>
-  <div class="scan-status" id="scanStatus">Camera wordt gestart…</div><div class="progress"></div>
+  <div class="scan-status" id="scanStatus">Camera wordt gestart…</div><div class="progress"><div id="scanProgress"></div></div>
 </div></div>
 
-<div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
+<div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><div id="alertCardName"></div><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
 
+<div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const $=id=>document.getElementById(id); const euro=n=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(n)); const money=(n,c='EUR')=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:c}).format(Number(n));
@@ -1661,41 +1662,18 @@ async function zcFinishRecognizedScan(recognized){
   return false;
 }
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.
-async function zcGetUserMediaWithTimeout(constraints,timeoutMs=5000){
-  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API niet beschikbaar');
-
-  let timer;
-  return await Promise.race([
-    navigator.mediaDevices.getUserMedia(constraints),
-    new Promise((_,reject)=>{
-      timer=setTimeout(()=>reject(new Error('camera-timeout')),timeoutMs);
-    })
-  ]).finally(()=>clearTimeout(timer));
-}
-
-async function zcStartVideoStream(mediaStream){
-  const video=$('camera');
-  video.srcObject=mediaStream;
-  video.setAttribute('playsinline','');
-  video.muted=true;
-
-  await new Promise((resolve,reject)=>{
-    if(video.readyState>=2 && video.videoWidth>0){resolve();return}
-    const onReady=()=>{cleanup();resolve()};
-    const onError=()=>{cleanup();reject(new Error('video-error'))};
+async function zcWaitForVideo(video,timeout=3000){
+  return await new Promise(resolve=>{
+    let done=false;
+    const finish=()=>{if(done)return;done=true;cleanup();resolve(video.videoWidth>0)};
     const cleanup=()=>{
-      video.removeEventListener('loadedmetadata',onReady);
-      video.removeEventListener('canplay',onReady);
-      video.removeEventListener('error',onError);
+      video.removeEventListener('loadedmetadata',finish);
+      video.removeEventListener('canplay',finish);
     };
-    video.addEventListener('loadedmetadata',onReady,{once:true});
-    video.addEventListener('canplay',onReady,{once:true});
-    video.addEventListener('error',onError,{once:true});
-    setTimeout(()=>{cleanup();resolve()},1800);
+    video.addEventListener('loadedmetadata',finish);
+    video.addEventListener('canplay',finish);
+    setTimeout(finish,timeout);
   });
-
-  try{await video.play()}catch(e){}
-  return video.videoWidth>0;
 }
 
 async function openScanner(){
@@ -1703,7 +1681,7 @@ async function openScanner(){
   $('capturedPreview').classList.add('hidden');
   $('camera').classList.remove('hidden');
   $('retryBtn').classList.add('hidden');
-  $('scanProgress').style.width='0';
+  if($('scanProgress'))$('scanProgress').style.width='0';
   $('scanStatus').textContent='Camera wordt gestart…';
 
   stopAutoScan();
@@ -1711,54 +1689,48 @@ async function openScanner(){
   zcScanVotes=[];
   zcBurstRunning=false;
 
-  // Never start OCR before the camera is actually visible.
   try{
-    stopCamera();
+    // Release an older stream first, but do not touch OCR or other heavy work yet.
+    if(stream){try{stream.getTracks().forEach(t=>t.stop())}catch(e){} stream=null;}
 
+    let media=null;
     try{
-      stream=await zcGetUserMediaWithTimeout({
-        video:{
-          facingMode:{ideal:'environment'},
-          width:{ideal:1280},
-          height:{ideal:720}
-        },
+      media=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'}},
         audio:false
-      },4500);
-    }catch(firstError){
-      // Android/Samsung fallback: use the simplest possible rear-camera request.
-      stream=await zcGetUserMediaWithTimeout({
-        video:{facingMode:'environment'},
-        audio:false
-      },4500);
+      });
+    }catch(e){
+      // Very broad Android fallback.
+      media=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
     }
 
-    const ready=await zcStartVideoStream(stream);
+    stream=media;
+    const video=$('camera');
+    video.srcObject=stream;
+    video.muted=true;
+    video.setAttribute('playsinline','');
+    video.setAttribute('autoplay','');
 
-    if(!ready){
-      // One final attempt without a facing-mode requirement.
-      stopCamera();
-      stream=await zcGetUserMediaWithTimeout({video:true,audio:false},4000);
-      await zcStartVideoStream(stream);
+    try{await video.play()}catch(e){}
+    const ready=await zcWaitForVideo(video,3200);
+
+    if(!ready || !video.videoWidth){
+      throw new Error('Geen camerabeeld ontvangen');
     }
 
-    await zcMinimizeCameraZoom();
-
+    // Only after live image is visible, attempt zoom and OCR warm-up.
+    await zcMinimizeCameraZoom().catch(()=>{});
     $('scanStatus').textContent='Camera klaar.';
     autoScanActive=true;
 
-    // OCR warm-up only AFTER camera is running.
-    setTimeout(()=>{
-      zcGetOcrWorker().catch(()=>{});
-    },250);
-
-    // Give autofocus/exposure a moment to settle before auto recognition.
-    scheduleAutoScan(1100);
-
+    setTimeout(()=>{zcGetOcrWorker().catch(()=>{})},400);
+    scheduleAutoScan(1200);
   }catch(e){
     console.error('Camera start error:',e);
-    stopCamera();
-    $('camera').classList.remove('hidden');
-    $('scanStatus').textContent='Camera kon niet worden geopend. Gebruik “Foto maken” of “Uit galerij kiezen”.';
+    if(stream){try{stream.getTracks().forEach(t=>t.stop())}catch(_e){} stream=null;}
+    const video=$('camera');
+    if(video)video.srcObject=null;
+    $('scanStatus').textContent='Camera kon niet worden geopend. Controleer cameratoestemming of gebruik Foto maken / Uit galerij kiezen.';
   }
 }
 
