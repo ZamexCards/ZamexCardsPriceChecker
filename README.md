@@ -1,27 +1,24 @@
-# ZamexCards Price Checker v11.3 – geen verkeerde scanresultaten
+# ZamexCards Price Checker v11.4 – eerst kaart, daarna uitvoering
 
-Belangrijkste verandering:
-de scanner toont NOOIT meer fuzzy/losse resultaten die niet minstens twee harde kenmerken delen met de scan.
+Nieuwe scannerstrategie:
 
-Een kaart mag alleen in scanresultaten verschijnen bij minimaal een van deze combinaties:
-- naam + kaartnummer
-- setcode + kaartnummer
-- kaartnummer + totaal uit de set
-- naam + setcode, alleen als kaartnummer helemaal niet gelezen kon worden
+1. Scanner bepaalt eerst alleen de BASISKAART:
+   - naam
+   - set/setcode
+   - kaartnummer
+   - totaal aantal kaarten
 
-Verwijderd:
-- number-only fallback
-- name-only fallback
-- brede fuzzy shortlist
+2. Uitvoering speelt GEEN rol meer bij het vinden van de basiskaart.
 
-Daardoor kan een verkeerde OCR zoals 133 niet meer zomaar Café Master tonen als de scan Victini BLK 012/086 is.
+3. Zodra de basiskaart gevonden is:
+   - alle bekende uitvoeringen van diezelfde kaart worden als keuzes getoond;
+   - minimaal Basic / Normaal en Reverse Holo blijven beschikbaar;
+   - databasevarianten zoals Poké Ball, Great Ball, Master Ball, stamps enz. worden toegevoegd wanneer beschikbaar.
 
-Bij onvoldoende zekerheid:
-- geen kaartresultaten
-- melding dat er geen veilige match is
-- opnieuw scannen of foto kiezen
+4. Als het beeld waarschijnlijk een speciale variant toont:
+   - die variant komt bovenaan / wordt voorgeselecteerd;
+   - maar de kaart blijft ook vindbaar als Normaal of Reverse Holo.
 
-Resultaattegels zijn bovendien opnieuw groter gemaakt voor mobiel.
+Dit voorkomt dat een Poké Ball / Reverse Holo / stamp-uitvoering de kaartidentiteit zelf blokkeert.
 
-Dit is de veiligste browser-only strategie:
-liever nul resultaten dan één verkeerde kaart.
+Resultaattegels zijn opnieuw groter gemaakt op mobiel.
