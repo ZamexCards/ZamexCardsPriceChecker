@@ -12,7 +12,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.search-grid .btn.primary{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child,.search-grid .btn.primary{grid-column:auto}.search-grid .btn{width:100%}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v6.4 combinations + GG/TG + grading companies -->
+<!-- ZamexCards Price Checker v6.6 multilingual + future-set discovery -->
 </head>
 <body>
 <div class="app">
@@ -32,7 +32,7 @@
 <form id="searchForm">
 <div class="search-grid">
   <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
-  <div class="field"><label>Set / setcode</label><input id="set" placeholder="bijv. 151, BRS, ASR"></div>
+  <div class="field"><label>Set / setcode</label><input id="set" placeholder="bijv. BRS, BLK, sv2a, s12a"></div>
   <div class="field"><label>Kaartnummer</label><input id="number" placeholder="bijv. 199 of TG14"></div>
   <button class="btn primary" type="submit">⌕ Zoek mijn kaart</button>
   <button class="btn blue" type="button" id="scanBtn">▣ Scan kaart</button>
@@ -106,7 +106,7 @@ function renderStrip(){const el=$('resultsStrip');if(currentCards.length<=1){el.
 function selectCard(i){selectedCard=currentCards[i];renderStrip();renderDetail()}
 function sellerRows(c){const p=c.prices,base=p.fromPrice||p.trendPrice||0,names=['CardShop Direct','Spelhuis','Gameground','TCG Kingdom','House of Cards'];return names.map((n,i)=>`<div class="info-row"><span>${i+1}. ${n}</span><strong>${euro(base*(1+i*.025))}</strong></div>`).join('')}
 function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const p=c.prices||{},up=Number(p.movement)>=0;el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addFav('${esc(c.id)}')">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc($('variant').value)}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addFav('${esc(c.id)}')">+ Voeg toe aan lijst</button><button class="btn" onclick="openAlert('${esc(c.id)}')">🔔 Prijsalarm</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>Actuele vanaf prijs</span><strong>${euro(p.fromPrice)}</strong></div><div class="price-row"><span>Trendprijs</span><strong>${euro(p.trendPrice)}</strong></div><div class="price-row"><span>Gemiddelde prijs (30 dagen)</span><strong>${euro(p.average30Days)}</strong></div><div class="price-row"><span>PSA 10 prijs</span><strong>${p.psa10Price?euro(p.psa10Price):'—'}</strong></div><div class="price-row"><span>Prijsontwikkeling (30 dagen)</span><span class="movement ${up?'up':'down'}">${up?'+':''}${Number(p.movement||0).toFixed(1)}%</span></div><div class="price-row seller"><span>Goedkoopste NL verkoper</span><strong>${esc(p.cheapestDutchSeller||'—')}</strong></div></div></div></div><div class="lower-grid"><div class="chart-box"><h3>Prijsontwikkeling (30 dagen)</h3><canvas id="priceChart" class="chart"></canvas></div><div class="seller-box"><h3 style="margin-top:0">Top 5 laagste prijzen (Engels)</h3>${sellerRows(c)}</div></div>`;requestAnimationFrame(()=>drawChart($('priceChart'),p.history||[]))}
-const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep'};
+const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep',BLK:'sv10.5b',WHT:'sv10.5w'};
 function zcClean(v=''){return String(v).trim().replace(/[^a-zA-Z0-9\s'.:/-]/g,'')}
 function zcNormNumber(v=''){return zcClean(v).toUpperCase().replace(/^0+(?=\d)/,'')}
 function zcParseSearch(rawName,rawSet,rawNumber){
@@ -218,18 +218,33 @@ async function zcTcgdexCardById(setId,number){
   const tried=new Set();
   for(const n of variants){
     if(!n||tried.has(n))continue;tried.add(n);
-    try{
-      const c=await zcFetchJson(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(setId+'-'+n)}`);
-      if(c?.id)return c
-    }catch(e){}
+    for(const lang of zcLanguageChain()){
+      try{
+        const c=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(setId+'-'+n)}`);
+        if(c?.id){c.__zcLang=lang;return c}
+      }catch(e){}
+    }
   }
   return null
 }
 async function zcTcgdexSet(setId){
-  try{return await zcFetchJson(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(setId)}`)}catch(e){return null}
+  for(const lang of zcLanguageChain()){
+    try{
+      const s=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(setId)}`);
+      if(s?.id){s.__zcLang=lang;return s}
+    }catch(e){}
+  }
+  return null
 }
-async function zcTcgdexFullCard(id){
-  try{return await zcFetchJson(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`)}catch(e){return null}
+async function zcTcgdexFullCard(id,preferredLang=null){
+  const langs=preferredLang?[preferredLang,...zcLanguageChain().filter(x=>x!==preferredLang)]:zcLanguageChain();
+  for(const lang of [...new Set(langs)]){
+    try{
+      const c=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
+      if(c?.id){c.__zcLang=lang;return c}
+    }catch(e){}
+  }
+  return null
 }
 async function zcTcgdexSearch(parsed,rarity){
   const out=[];
@@ -277,10 +292,16 @@ async function zcTcgdexSearch(parsed,rarity){
 
   for(const qs of [...new Set(searches)]){
     try{
-      const list=await zcFetchJson(`https://api.tcgdex.net/v2/en/cards?${qs}`);
+      let list=null,usedLang=null;
+      for(const lang of zcLanguageChain()){
+        try{
+          const candidate=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards?${qs}`);
+          if(Array.isArray(candidate)&&candidate.length){list=candidate;usedLang=lang;break}
+        }catch(e){}
+      }
       if(Array.isArray(list)){
         for(const brief of list.slice(0,30)){
-          const full=await zcTcgdexFullCard(brief.id)||brief;
+          const full=await zcTcgdexFullCard(brief.id,usedLang)||brief;
           if(parsed.number&&zcNormNumber(full.localId||'')!==zcNormNumber(parsed.number))continue;
           if(parsed.name&&!(full.name||'').toLowerCase().includes(parsed.name.toLowerCase()))continue;
           if(rarity&&(full.rarity||'').toLowerCase()!==rarity.toLowerCase())continue;
@@ -321,13 +342,175 @@ async function zcPokemonFallback(parsed,rarity){
   }
   return[...seen.values()].slice(0,18).map(zcPokeToResult)
 }
+
+const ZC_LANG_MAP={
+  English:['en'],
+  Dutch:['nl','en'],
+  Japanese:['ja','en'],
+  Korean:['ko','ja','en'],
+  Chinese:['zh-cn','zh-tw','ja','en'],
+  German:['de','en'],
+  French:['fr','en'],
+  Italian:['it','en'],
+  Spanish:['es','en']
+};
+
+function zcSelectedLanguage(){
+  const el=document.getElementById('language');
+  return el?.value||'English';
+}
+function zcLanguageChain(){
+  return ZC_LANG_MAP[zcSelectedLanguage()]||['en'];
+}
+async function zcFetchTcgdex(path, preferredLang=null){
+  const langs=preferredLang?[preferredLang,...zcLanguageChain().filter(x=>x!==preferredLang)]:zcLanguageChain();
+  let lastError=null;
+  for(const lang of [...new Set(langs)]){
+    try{
+      const data=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/${path}`);
+      if(data && (!Array.isArray(data) || data.length)) return {data,lang};
+    }catch(e){lastError=e}
+  }
+  if(lastError)throw lastError;
+  return {data:null,lang:langs[0]||'en'};
+}
+function zcLanguageLabel(){
+  return zcSelectedLanguage();
+}
+const ZC_DYNAMIC_SET_CACHE=new Map();
+
+function zcNormSetName(v=''){
+  return String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+async function zcResolveUnknownSetCode(code){
+  const raw=zcClean(code);
+  const upper=raw.toUpperCase();
+  if(!upper)return null;
+  if(SET_CODE_TO_ID[upper])return {code:upper,tcgdexId:SET_CODE_TO_ID[upper],pokemonId:''};
+
+  const cacheKey=zcSelectedLanguage()+'|'+upper;
+  if(ZC_DYNAMIC_SET_CACHE.has(cacheKey))return ZC_DYNAMIC_SET_CACHE.get(cacheKey);
+
+  let resolved=null;
+
+  // A) Many Japanese/Asian set codes are also directly usable as TCGdex set IDs.
+  for(const candidateId of [...new Set([raw,raw.toLowerCase(),raw.toUpperCase()])]){
+    for(const lang of zcLanguageChain()){
+      try{
+        const set=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(candidateId)}`);
+        if(set?.id){
+          resolved={code:upper,tcgdexId:set.id,pokemonId:'',name:set.name||'',lang};
+          ZC_DYNAMIC_SET_CACHE.set(cacheKey,resolved);
+          return resolved;
+        }
+      }catch(e){}
+    }
+  }
+
+  // B) Scan the set index in the chosen language(s), so newly announced sets work
+  // as soon as TCGdex publishes them.
+  for(const lang of zcLanguageChain()){
+    try{
+      const dexSets=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets`);
+      if(Array.isArray(dexSets)){
+        const normalized=zcNormSetName(raw);
+        const match=dexSets.find(s=>
+          String(s.id||'').toUpperCase()===upper ||
+          zcNormSetName(s.name||'')===normalized ||
+          String(s.name||'').toUpperCase().includes(upper)
+        );
+        if(match?.id){
+          resolved={code:upper,tcgdexId:match.id,pokemonId:'',name:match.name||'',lang};
+          ZC_DYNAMIC_SET_CACHE.set(cacheKey,resolved);
+          return resolved;
+        }
+      }
+    }catch(e){}
+  }
+
+  // C) English/international official PTCGO codes via Pokémon TCG API.
+  try{
+    const poke=await zcFetchJson(
+      `https://api.pokemontcg.io/v2/sets?q=${encodeURIComponent('ptcgoCode:'+upper)}&pageSize=20`
+    );
+    const set=(poke.data||[]).find(s=>(s.ptcgoCode||'').toUpperCase()===upper)||(poke.data||[])[0];
+    if(set){
+      let tcgdexId='';
+      let langFound='';
+      for(const lang of zcLanguageChain()){
+        try{
+          const dexSets=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/sets`);
+          const wanted=zcNormSetName(set.name||'');
+          const match=Array.isArray(dexSets)?dexSets.find(s=>zcNormSetName(s.name||'')===wanted):null;
+          if(match?.id){tcgdexId=match.id;langFound=lang;break}
+        }catch(e){}
+      }
+      resolved={code:upper,tcgdexId,pokemonId:set.id||'',name:set.name||'',lang:langFound};
+    }
+  }catch(e){}
+
+  ZC_DYNAMIC_SET_CACHE.set(cacheKey,resolved);
+  return resolved;
+}
+
 async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
-  const parsed=zcParseSearch(rawName,rawSet,rawNumber);
-  if(!parsed.name&&!parsed.setId&&!parsed.number)return[];
-  let cards=await zcTcgdexSearch(parsed,rarity);
+  let parsed=zcParseSearch(rawName,rawSet,rawNumber);
+
+  // If parser sees an unknown 2-5 letter token in the explicit set field,
+  // resolve it dynamically (e.g. new future Pokémon set codes).
+  const explicitSet=zcClean(rawSet).toUpperCase();
+  if(explicitSet && !parsed.setId && /^[A-Z0-9.:-]{2,12}$/.test(explicitSet)){
+    const r=await zcResolveUnknownSetCode(explicitSet);
+    if(r){
+      parsed.setCode=explicitSet;
+      parsed.setId=r.tcgdexId||'';
+      parsed.pokemonSetId=r.pokemonId||'';
+    }
+  }
+
+  if(!parsed.name&&!parsed.setId&&!parsed.number&&!parsed.pokemonSetId)return[];
+
+  let cards=[];
+
+  // TCGdex first when we know its set ID.
+  if(parsed.setId){
+    cards=await zcTcgdexSearch(parsed,rarity);
+    if(cards.length)return cards;
+  }
+
+  // Pokémon fallback; dynamic resolved Pokémon set ID gets priority.
+  if(parsed.pokemonSetId){
+    const attempts=[];
+    if(parsed.number&&parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number} name:${parsed.name}*`);
+    if(parsed.number)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number}`);
+    if(parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} name:${parsed.name}*`);
+
+    const seen=new Map();
+    for(const q of attempts){
+      try{
+        const u=`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&orderBy=-set.releaseDate,number&pageSize=40`;
+        const d=await zcFetchJson(u);
+        for(const c of d.data||[]){
+          if(c.set?.id!==parsed.pokemonSetId)continue;
+          if(parsed.number&&zcNormNumber(c.number)!==zcNormNumber(parsed.number))continue;
+          if(parsed.name&&!c.name.toLowerCase().includes(parsed.name.toLowerCase()))continue;
+          if(rarity&&(c.rarity||'').toLowerCase()!==rarity.toLowerCase())continue;
+          seen.set(c.id,c);
+        }
+      }catch(e){}
+      if(seen.size)break;
+    }
+    cards=[...seen.values()].slice(0,18).map(zcPokeToResult);
+    if(cards.length)return cards;
+  }
+
+  // Generic fallbacks (number/name only) stay available.
+  cards=await zcTcgdexSearch(parsed,rarity);
   if(cards.length)return cards;
-  cards=await zcPokemonFallback(parsed,rarity);
-  return cards
+
+  return await zcPokemonFallback(parsed,rarity);
 }
 async function searchCards(e){
   e?.preventDefault();
@@ -337,7 +520,7 @@ async function searchCards(e){
     currentCards=await zcSearchDirect($('q').value,$('set').value,$('number').value,$('rarity').value);
     selectedCard=currentCards[0]||null;
     renderStrip();renderDetail();
-    if(!currentCards.length)showToast('Geen kaart gevonden. Controleer vooral de setcode en het kaartnummer.')
+    if(!currentCards.length)showToast('Geen kaart gevonden. Controleer setcode, taal en kaartnummer. Nieuwe sets verschijnen zodra de databron ze heeft gepubliceerd.')
   }catch(err){
     console.error(err);
     $('detailPanel').innerHTML='<div class="placeholder"><strong>Zoeken mislukt.</strong><br>De kaartdatabase kon niet worden bereikt. Probeer opnieuw.</div>'
@@ -366,6 +549,22 @@ function parseOCR(text){const raw=String(text||'').replace(/\r/g,'\n'),lines=raw
 const bad=/^(basic|stage|trainer|supporter|item|energy|ability|weakness|resistance|retreat|illustrator|pokemon|pokémon|hp\s*\d+)/i;let name='';for(let line of lines.slice(0,9)){line=line.replace(/\b\d{2,3}\s*HP\b/ig,'').replace(/\bHP\s*\d{2,3}\b/ig,'').replace(/[^A-Za-zÀ-ÿ' .\-]/g,' ').replace(/\s+/g,' ').trim();if(line.length>=3&&line.length<=34&&/[A-Za-zÀ-ÿ]{3}/.test(line)&&!bad.test(line)){name=line;break}}return{name,number,raw}}
 async function scanImage(data){if(ocrBusy)return;ocrBusy=true;stopCamera();$('camera').classList.add('hidden');$('capturedPreview').src=data;$('capturedPreview').classList.remove('hidden');$('retryBtn').classList.remove('hidden');$('scanStatus').textContent='Kaart wordt gelezen… dit kan enkele seconden duren.';try{const result=await Tesseract.recognize(data,'eng',{logger:m=>{if(m.status==='recognizing text'){$('scanProgress').style.width=Math.round((m.progress||0)*100)+'%';$('scanStatus').textContent='Kaart lezen… '+Math.round((m.progress||0)*100)+'%'}}});const p=parseOCR(result.data?.text||'');$('q').value=p.name||'';$('number').value=p.number||'';$('scanProgress').style.width='100%';if(p.name||p.number){$('scanStatus').textContent=`Herkenning: ${p.name||'naam niet zeker'} ${p.number?'#'+p.number:''}. Kaart wordt opgezocht…`;setTimeout(async()=>{closeScanner();await searchCards();showToast('Scangegevens automatisch ingevuld en opgezocht.')},350)}else{$('scanStatus').textContent='Naam/nummer niet duidelijk genoeg. Maak opnieuw een foto dichterbij en zonder reflectie.'}}catch(err){$('scanStatus').textContent='Scannen is niet gelukt. Probeer opnieuw of zoek de kaart handmatig.'}finally{ocrBusy=false}}
 window.addEventListener('beforeunload',stopCamera);renderFavorites();
+
+function zcCardPlaceholder(card){
+  const name=card?.name||'Pokémon TCG kaart';
+  const set=card?.set||'Nieuwe / aankomende set';
+  const number=card?.number?('#'+card.number):'Afbeelding nog niet gepubliceerd';
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="500" height="700">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#062447"/><stop offset="1" stop-color="#0b3a57"/></linearGradient></defs>
+  <rect width="100%" height="100%" rx="26" fill="url(#g)"/><rect x="18" y="18" width="464" height="664" rx="20" fill="none" stroke="#44d35b" stroke-width="5"/>
+  <text x="250" y="260" text-anchor="middle" fill="#55d764" font-size="34" font-family="Arial" font-weight="bold">ZamexCards</text>
+  <text x="250" y="320" text-anchor="middle" fill="white" font-size="25" font-family="Arial">${zcEsc(name).replace(/&/g,'&amp;')}</text>
+  <text x="250" y="365" text-anchor="middle" fill="#a9bfd2" font-size="21" font-family="Arial">${zcEsc(set).replace(/&/g,'&amp;')}</text>
+  <text x="250" y="410" text-anchor="middle" fill="#a9bfd2" font-size="20" font-family="Arial">${zcEsc(number).replace(/&/g,'&amp;')}</text>
+  <text x="250" y="520" text-anchor="middle" fill="#55a9ff" font-size="18" font-family="Arial">Kaartafbeelding volgt automatisch</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
+}
 </script>
 </body>
 </html>

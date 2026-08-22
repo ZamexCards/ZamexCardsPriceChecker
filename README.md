@@ -1,19 +1,31 @@
-# ZamexCards Price Checker v6.4
+# ZamexCards Price Checker v6.6 – Multilanguage + toekomstige sets
 
-Zoeken ondersteunt nu:
-- naam + set
-- naam + nummer
-- set + nummer
-- naam + set + nummer
-- alleen GG/TG/SV nummer, bijvoorbeeld GG21 of TG08
-- compacte combinaties zoals FST100, BRSTG08 en CRZGG21
+## Talen
+De geselecteerde kaarttaal bepaalt nu ook waar gezocht wordt.
 
-GG21 blijft correct een kaartnummer. De parser splitst een compact woord alleen wanneer
-het eerste deel een bekende setcode is.
+Zoekvolgorde:
+- Engels -> en
+- Japans -> ja, daarna en
+- Koreaans -> ko, daarna ja, daarna en
+- Chinees -> zh-cn, daarna zh-tw, daarna ja, daarna en
+- Duits/Frans/Italiaans/Spaans -> eigen taal, daarna en
+- Nederlands -> nl, daarna en
 
-Gradingbedrijven:
-PSA, BGS / Beckett, CGC Cards, ACE Grading, TAG Grading, SGC, MNT Grading,
-AGS, HGA, ISA, FCG, PCA, GRAAD en AP Grading.
+Niet iedere databron heeft iedere taal even compleet. De fallbacks voorkomen dat een
+kaart direct onvindbaar wordt als één taalcollectie achterloopt.
 
-Upload op GitHub Pages alleen de nieuwe index.html over de bestaande.
-Daarna Commit changes, 1-2 minuten wachten en Ctrl+F5.
+## Sets
+- bekende internationale setcodes blijven direct werken;
+- Japanse/Chinese/Koreaanse set-ID's zoals `sv2a`, `s12a` kunnen rechtstreeks worden geprobeerd;
+- onbekende setcodes worden dynamisch gezocht in de actuele setlijsten;
+- Engelse/internationale PTCGO-codes worden aanvullend via Pokémon TCG API opgelost;
+- nieuwe/aankomende sets worden zichtbaar zodra één van de gekoppelde databronnen ze publiceert.
+
+## Afbeeldingen
+De echte kaartafbeelding wordt gebruikt zodra de bron die heeft gepubliceerd.
+Als een aangekondigde kaart nog geen openbare scan heeft, toont de pagina een
+ZamexCards-placeholder zodat er nooit een kapot/leeg afbeeldingsvlak staat.
+
+## Upload
+Voor GitHub Pages hoef je alleen `index.html` te vervangen.
+Commit changes, wacht 1-2 minuten en gebruik Ctrl+F5.
