@@ -23,8 +23,79 @@
 @media(max-width:1180px){.detail-grid{grid-template-columns:220px 1fr}.prices-column{grid-column:1/-1}.workspace{grid-template-columns:minmax(0,1.65fr) minmax(320px,.85fr)}.options-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:310px;min-width:265px}}
+
+/* v11.2 - grotere gevonden scanresultaten */
+.result-chip{
+  min-width:340px !important;
+  max-width:420px !important;
+  min-height:126px !important;
+  padding:14px 16px !important;
+  gap:16px !important;
+  border-radius:14px !important;
+}
+.result-chip img{
+  width:76px !important;
+  height:106px !important;
+  flex:0 0 76px !important;
+  border-radius:7px !important;
+}
+.result-chip span{
+  font-size:18px !important;
+  line-height:1.35 !important;
+  white-space:normal !important;
+}
+@media(max-width:700px){
+  .result-chip{
+    min-width:82vw !important;
+    max-width:82vw !important;
+    min-height:138px !important;
+    padding:14px !important;
+  }
+  .result-chip img{
+    width:82px !important;
+    height:114px !important;
+    flex-basis:82px !important;
+  }
+  .result-chip span{
+    font-size:18px !important;
+  }
+}
+
+
+/* v11.3 - veilige scanresultaten groter en duidelijker */
+.result-chip{
+  min-width:360px !important;
+  max-width:460px !important;
+  min-height:144px !important;
+  padding:16px !important;
+}
+.result-chip img{
+  width:90px !important;
+  height:126px !important;
+  flex:0 0 90px !important;
+}
+.result-chip span{
+  font-size:19px !important;
+  line-height:1.4 !important;
+}
+@media(max-width:700px){
+  .result-chip{
+    min-width:88vw !important;
+    max-width:88vw !important;
+    min-height:154px !important;
+  }
+  .result-chip img{
+    width:94px !important;
+    height:132px !important;
+    flex-basis:94px !important;
+  }
+  .result-chip span{
+    font-size:19px !important;
+  }
+}
+
 </style>
-<!-- ZamexCards Price Checker v11.1 exact setcode collector + larger choices -->
+<!-- ZamexCards Price Checker v11.3 strict safe scan results -->
 </head>
 <body>
 <div class="app">
@@ -1958,33 +2029,46 @@ async function zcDirectExactSetCollector(rec){
 async function zcBuildScanCandidates(rec){
   let cards=[];
 
-  // Route 0: exact setcode + collector number first.
-  // This should resolve cards like BLK 012/086 before any fuzzy search.
-  cards=await zcDirectExactSetCollector(rec);
-  if(cards.length)return cards;
+  // 1) Strongest: exact setcode + collector number.
+  if(rec.setCode && rec.number){
+    cards=await zcDirectExactSetCollector(rec);
+    if(cards.length)return cards;
+  }
 
-  // Route 1: name + number.
+  // 2) Name + number.
   if(rec.name && rec.number){
     cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',rec.number),'');
+    if(cards.length)return cards;
   }
 
-  // Route 2: number only.
-  if(!cards.length && rec.number){
+  // 3) Number + total. Search number broadly, but later strict-filter on total.
+  if(rec.number && rec.total){
     cards=await zcGlobalCardSearch(zcParseSearch('','',rec.number),'');
+    if(cards.length)return cards;
   }
 
-  // Route 3: name only.
-  if(!cards.length && rec.name){
-    cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',''),'');
+  // 4) Setcode + name, only if number OCR failed.
+  if(!rec.number && rec.setCode && rec.name){
+    const resolved=await zcResolveSetFromCatalog(rec.setCode);
+    if(resolved?.tcgdexId){
+      cards=await zcGlobalCardSearch({
+        name:rec.name,
+        setQuery:rec.setCode,
+        setCode:String(rec.setCode).toUpperCase(),
+        setId:resolved.tcgdexId,
+        number:'',
+        preferredLang:resolved.lang||null,
+        pokemonSetId:resolved.pokemonId||''
+      },'');
+      if(cards.length)return cards;
+    }
   }
 
-  if(rec.total && cards.length){
-    const target=zcNormCardNumber(rec.total);
-    const matching=cards.filter(c=>zcNormCardNumber(zcCardPrintedTotal(c))===target);
-    if(matching.length)cards=matching;
-  }
-
-  return cards;
+  // IMPORTANT:
+  // No number-only fallback.
+  // No name-only fallback.
+  // Those were the reason unrelated cards appeared.
+  return [];
 }
 
 function zcUniqueTopMatch(rec,cards){
@@ -2094,20 +2178,112 @@ function zcChooseScannedVariant(card,source){
   return 'Automatisch';
 }
 
+
+function zcStrictSignalCheck(rec,card){
+  const hits=[];
+  const fails=[];
+
+  // NAME: allow only a strong name match.
+  if(rec?.name){
+    const ns=zcNameScore(rec.name,card?.name||'');
+    if(ns>=.82)hits.push('name');
+    else if(ns<.60)fails.push('name');
+  }
+
+  // NUMBER
+  if(rec?.number){
+    const rn=zcNormCardNumber(rec.number);
+    const cn=zcNormCardNumber(card?.number||'');
+    if(rn && cn && rn===cn)hits.push('number');
+    else if(rn && cn && rn!==cn)fails.push('number');
+  }
+
+  // PRINTED TOTAL
+  if(rec?.total || rec?.printedTotal){
+    const rt=zcNormCardNumber(rec.total||rec.printedTotal||'');
+    const ct=zcNormCardNumber(zcCardPrintedTotal(card));
+    if(rt && ct && rt===ct)hits.push('total');
+    else if(rt && ct && rt!==ct)fails.push('total');
+  }
+
+  // SETCODE
+  if(rec?.setCode){
+    const rs=String(rec.setCode).toUpperCase();
+    const vals=zcSetCodeCandidates(card);
+    if(vals.includes(rs))hits.push('setcode');
+    else if(vals.length)fails.push('setcode');
+  }
+
+  return {hits,fails,count:hits.length};
+}
+
+function zcIsSafeScanCandidate(rec,card){
+  const s=zcStrictSignalCheck(rec,card);
+
+  // A direct hard contradiction on both name and number means immediate rejection.
+  if(s.fails.includes('name') && s.fails.includes('number'))return false;
+
+  // Any candidate shown to the user must have AT LEAST TWO independent matching signals.
+  if(s.count<2)return false;
+
+  // Exact collector-number route.
+  if(s.hits.includes('number') && s.hits.includes('total'))return true;
+
+  // Exact set route.
+  if(s.hits.includes('setcode') && s.hits.includes('number'))return true;
+
+  // Name + number route.
+  if(s.hits.includes('name') && s.hits.includes('number'))return true;
+
+  // Name + setcode is only enough when number OCR failed entirely.
+  if(!rec?.number && s.hits.includes('name') && s.hits.includes('setcode'))return true;
+
+  return false;
+}
+
+function zcDeduplicateScanCandidates(cards){
+  const seen=new Set();
+  return cards.filter(c=>{
+    const key=[
+      zcNormText(c?.name||''),
+      String(c?.setCode||c?.setId||c?.set||'').toUpperCase(),
+      zcNormCardNumber(c?.number||'')
+    ].join('|');
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function zcFindScannedCard(recognized){
   if(!recognized?.name && !recognized?.number)return [];
 
-  const cards=await zcBuildScanCandidates(recognized);
+  let cards=await zcBuildScanCandidates(recognized);
+  cards=zcDeduplicateScanCandidates(cards);
+
   if(!cards.length)return [];
 
-  const result=zcUniqueTopMatch(recognized,cards);
-  if(result.match)return [result.match];
+  // HARD SAFETY FILTER:
+  // wrong-looking cards never reach the UI.
+  const safe=cards.filter(c=>zcIsSafeScanCandidate(recognized,c));
 
-  // No certain match: return a short ranked shortlist, but never auto-pick.
-  return result.ranked
-    .filter(x=>x.score>=Math.max(20,(result.ranked[0]?.score||0)-12))
-    .slice(0,8)
-    .map(x=>x.c);
+  if(!safe.length)return [];
+
+  // Rank only already-safe candidates.
+  const ranked=safe
+    .map(c=>({c,...zcIdentityScore(recognized,c)}))
+    .sort((a,b)=>b.score-a.score);
+
+  if(ranked.length===1)return [ranked[0].c];
+
+  const top=ranked[0],second=ranked[1];
+  const gap=top.score-second.score;
+
+  // Auto-select only with a clear margin.
+  if(top.score>=85 && gap>=18)return [top.c];
+
+  // Otherwise show ONLY strict-safe candidates, never fuzzy unrelated cards.
+  return ranked.slice(0,6).map(x=>x.c);
 }
 
 async function zcApplyScannedCard(card,sourceImage=null){
@@ -2379,7 +2555,7 @@ async function scanImage(data,isAuto=false){
 
     // Never write unconfirmed OCR into the main search fields.
     if($('scanProgress'))$('scanProgress').style.width='0';
-    $('scanStatus').textContent='Geen zekere match. Gebruik Opnieuw of kies een foto.';
+    $('scanStatus').textContent='Geen veilige match gevonden. Er worden bewust geen mogelijke verkeerde kaarten getoond. Gebruik Opnieuw of kies een foto.';
     ocrBusy=false;
 
   }catch(e){
