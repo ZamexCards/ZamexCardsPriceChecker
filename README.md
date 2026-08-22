@@ -1,35 +1,26 @@
-# ZamexCards Price Checker v8.6
+# ZamexCards Price Checker v8.7 – snellere/slimmere scanner
 
-## Officiële setcodes voor alle talen
+Scanner is opnieuw opgebouwd voor Pokémonkaarten:
 
-De dropdown gebruikt nu per taal de beste beschikbare officiële/canonieke setcode.
+- OCR leest niet meer standaard de volledige kaart als één groot tekstvlak.
+- Bovenste deel wordt apart gelezen voor kaartnaam.
+- Onderste deel wordt apart gelezen voor collector-/kaartnummer.
+- Alleen bij twijfel volgt één full-card fallback.
+- Beeld wordt voor OCR automatisch:
+  - grijswaarden;
+  - contrastversterkt;
+  - lichte/donkere pixels opgeschoond.
+- OCR-worker wordt één keer geladen en daarna hergebruikt.
+  Hierdoor zijn volgende scans duidelijk sneller dan telkens Tesseract opnieuw laden.
+- Automatische scanpogingen volgen sneller.
+- Kaartnummer heeft extra gewicht omdat dit vaak betrouwbaarder herkenbaar is dan full-art tekst.
 
-### Engels
-- Brilliant Stars -> BRS
-- Fusion Strike -> FST
-- Astral Radiance -> ASR
-- Scarlet & Violet Promos -> SVP
+Dit helpt vooral bij:
+- holo kaarten;
+- full arts;
+- sleeves;
+- reflecties;
+- donkere achtergronden;
+- kleine tekst onderaan.
 
-### Japans
-- Japanse officiële/canonieke codes zoals `sv2a`, `s12a`, enz.
-- Broncode heeft voorrang; anders wordt de canonieke TCGdex set-ID gebruikt.
-
-### Chinees
-- Chinese regionale setcode wordt gebruikt zodra de bron die levert.
-- Anders wordt de canonieke regionale set-ID gebruikt.
-
-### Koreaans
-- Koreaanse regionale setcode wordt gebruikt zodra de bron die levert.
-- Anders wordt de canonieke regionale set-ID gebruikt.
-
-## Filteren
-Typ je een exacte code, dan blijft alleen de exacte set zichtbaar.
-Dit geldt nu voor ALLE talen:
-- BRS -> Brilliant Stars
-- sv2a -> Pokémon Card 151 (Japanse set)
-- hetzelfde principe voor Chinese en Koreaanse codes
-
-De interne database-ID blijft alleen als technische fallback in gebruik.
-
-GitHub Pages:
-vervang alleen `index.html`, Commit changes, wacht kort en doe Ctrl+F5.
+Upload alleen `index.html` naar GitHub Pages.

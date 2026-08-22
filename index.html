@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v8.6 official set codes all languages -->
+<!-- ZamexCards Price Checker v8.7 fast region-based reusable OCR scanner -->
 </head>
 <body>
 <div class="app">
@@ -109,7 +109,7 @@
 
 <div class="modal" id="scanModal"><div class="modal-box">
   <div class="section-title"><h2>📷 Pokémonkaart scannen</h2><button class="btn sm" id="closeScanner">✕</button></div>
-  <p>Houd de hele kaart binnen het kader. De scanner probeert automatisch te herkennen zodra de camera stabiel is. Je kunt ook handmatig scannen, een foto maken of een afbeelding uit je galerij kiezen.</p>
+  <p>Houd de hele kaart binnen het kader en zorg vooral dat de naam bovenaan en het kaartnummer onderaan scherp zijn. De scanner leest deze delen apart voor snellere herkenning.</p>
   <div class="camera-frame"><video id="camera" playsinline autoplay muted></video><img id="capturedPreview" class="hidden" alt="Gescande kaart"><div class="scan-guide"></div></div>
   <canvas id="captureCanvas" class="hidden"></canvas>
   <input id="cameraPhotoInput" class="hidden" type="file" accept="image/*" capture="environment">
@@ -1276,12 +1276,12 @@ async function zcMinimizeCameraZoom(){
 }
 function zcCaptureCurrentFrame(){
   const v=$('camera');if(!v?.videoWidth)return null;
-  const c=$('captureCanvas'),max=1280,scale=Math.min(1,max/v.videoWidth);
+  const c=$('captureCanvas'),max=1600,scale=Math.min(1,max/v.videoWidth);
   c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);
   c.getContext('2d').drawImage(v,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.88);
 }
-function scheduleAutoScan(delay=1600){
+function scheduleAutoScan(delay=950){
   if(!autoScanActive)return;
   if(autoScanTimer)clearTimeout(autoScanTimer);
   autoScanTimer=setTimeout(autoCaptureAndRecognize,delay);
@@ -1290,6 +1290,144 @@ async function autoCaptureAndRecognize(){
   if(!autoScanActive||ocrBusy||!$('scanModal').classList.contains('open')){scheduleAutoScan(1300);return}
   const data=zcCaptureCurrentFrame();if(!data){scheduleAutoScan(800);return}
   autoScanAttempts++;await scanImage(data,true);
+}
+
+let zcOcrWorker=null;
+let zcOcrWorkerPromise=null;
+
+async function zcGetOcrWorker(){
+  if(zcOcrWorker)return zcOcrWorker;
+  if(zcOcrWorkerPromise)return zcOcrWorkerPromise;
+
+  zcOcrWorkerPromise=(async()=>{
+    const worker=await Tesseract.createWorker('eng',1,{
+      logger:m=>{
+        if(m.status==='recognizing text' && $('scanProgress')){
+          $('scanProgress').style.width=Math.round((m.progress||0)*100)+'%';
+        }
+      }
+    });
+
+    try{
+      await worker.setParameters({
+        tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789éÉ.!'/- ",
+        preserve_interword_spaces:'1'
+      });
+    }catch(e){}
+
+    zcOcrWorker=worker;
+    return worker;
+  })();
+
+  return zcOcrWorkerPromise;
+}
+
+function zcScannerCrop(source,part){
+  const imgW=source.videoWidth||source.naturalWidth||source.width;
+  const imgH=source.videoHeight||source.naturalHeight||source.height;
+  const canvas=document.createElement('canvas');
+  let sx=0,sy=0,sw=imgW,sh=imgH;
+
+  // Pokémon cards: name is at the top; collector/set number is at the bottom.
+  if(part==='top'){
+    sx=imgW*.035; sy=imgH*.015; sw=imgW*.93; sh=imgH*.255;
+  }else if(part==='bottom'){
+    sx=imgW*.025; sy=imgH*.76; sw=imgW*.95; sh=imgH*.235;
+  }else{
+    sx=imgW*.02; sy=imgH*.01; sw=imgW*.96; sh=imgH*.98;
+  }
+
+  const targetW=Math.min(1500,Math.max(900,Math.round(sw*1.35)));
+  const scale=targetW/sw;
+  canvas.width=Math.round(sw*scale);
+  canvas.height=Math.round(sh*scale);
+
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(source,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+
+  // Fast grayscale + contrast + mild thresholding.
+  const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const d=image.data;
+  for(let i=0;i<d.length;i+=4){
+    const gray=.299*d[i]+.587*d[i+1]+.114*d[i+2];
+    let v=(gray-128)*1.7+128;
+    // Keep anti-aliasing, but push background/light glare away from text.
+    if(v>205)v=245;
+    else if(v<65)v=18;
+    v=Math.max(0,Math.min(255,v));
+    d[i]=d[i+1]=d[i+2]=v;
+  }
+  ctx.putImageData(image,0,0);
+  return canvas;
+}
+
+function zcParseTopText(text=''){
+  const lines=String(text).split(/\n+/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+
+  const banned=/^(basic|stage|stage 1|stage 2|hp\s*\d+|trainer|supporter|item|energy)$/i;
+  for(const line of lines.slice(0,8)){
+    let s=line
+      .replace(/\bHP\s*\d+\b/ig,'')
+      .replace(/\b(?:BASIC|STAGE\s*[12]?)\b/ig,'')
+      .replace(/[|_[\]{}]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+
+    // Names generally contain letters and are not long attack/effect lines.
+    if(s.length>=3 && s.length<=42 && /[A-Za-z]/.test(s) && !banned.test(s)){
+      // Strip obvious OCR garbage at ends.
+      s=s.replace(/^[^A-Za-z0-9éÉ]+|[^A-Za-z0-9éÉ.!' -]+$/g,'').trim();
+      if(s.length>=3)return s;
+    }
+  }
+  return '';
+}
+
+function zcParseBottomText(text=''){
+  const t=String(text).replace(/\s+/g,' ').toUpperCase();
+
+  // Prefer explicit collector number x/y.
+  let m=t.match(/\b([A-Z]{0,5}\d{1,4}[A-Z]?)\s*\/\s*(\d{1,4})\b/);
+  if(m)return {number:m[1],printedTotal:m[2]};
+
+  // Galleries/promos and modern special numbering.
+  m=t.match(/\b((?:TG|GG|SV|SWSH|SM|XY|BW|DP|NP|MEP|SVP)?\d{2,4}[A-Z]?)\b/);
+  if(m)return {number:m[1]};
+
+  return {number:''};
+}
+
+async function zcRecognizeCanvas(canvas,psm='6'){
+  const worker=await zcGetOcrWorker();
+  try{await worker.setParameters({tessedit_pageseg_mode:String(psm)})}catch(e){}
+  const r=await worker.recognize(canvas);
+  return r?.data?.text||'';
+}
+
+async function zcSmartRecognizeSource(source,isAuto=false){
+  // Bottom first: collector number is the strongest identifier and cheapest useful OCR.
+  $('scanStatus').textContent=isAuto?'Kaartnummer automatisch lezen…':'Kaartnummer lezen…';
+  const bottomCanvas=zcScannerCrop(source,'bottom');
+  const bottomText=await zcRecognizeCanvas(bottomCanvas,'6');
+  const bottom=zcParseBottomText(bottomText);
+
+  // Read the top independently for the Pokémon/card name.
+  $('scanStatus').textContent=isAuto?'Kaartnaam automatisch lezen…':'Kaartnaam lezen…';
+  const topCanvas=zcScannerCrop(source,'top');
+  const topText=await zcRecognizeCanvas(topCanvas,'6');
+  let name=zcParseTopText(topText);
+
+  // If either field is weak, do one full-card fallback OCR rather than repeated full scans.
+  if(!bottom.number || !name){
+    $('scanStatus').textContent='Extra controle uitvoeren…';
+    const fullCanvas=zcScannerCrop(source,'full');
+    const fullText=await zcRecognizeCanvas(fullCanvas,'11');
+    const old=parseOCR(fullText);
+    if(!name)name=old.name||'';
+    if(!bottom.number)bottom.number=old.number||'';
+  }
+
+  return {name,number:bottom.number||''};
 }
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.
 async function openScanner(){
@@ -1309,7 +1447,7 @@ async function openScanner(){
     await video.play().catch(()=>{});
     await zcMinimizeCameraZoom();
     $('scanStatus').textContent='Camera klaar. Houd de hele kaart binnen het groene kader; herkennen start automatisch.';
-    autoScanActive=true;scheduleAutoScan(1600);
+    autoScanActive=true;scheduleAutoScan(900);
   }catch(e){
     $('scanStatus').textContent='Camera kon niet worden geopend. Gebruik “Foto maken” of “Uit galerij kiezen”.';
   }
@@ -1338,58 +1476,75 @@ const bad=/^(basic|stage|trainer|supporter|item|energy|ability|weakness|resistan
 async function scanImage(data,isAuto=false){
   if(ocrBusy)return;
   ocrBusy=true;
+
   if(!isAuto){
-    stopAutoScan();stopCamera();
+    stopAutoScan();
+    stopCamera();
     $('camera').classList.add('hidden');
-    $('capturedPreview').src=data;$('capturedPreview').classList.remove('hidden');
+    $('capturedPreview').src=data;
+    $('capturedPreview').classList.remove('hidden');
     $('retryBtn').classList.remove('hidden');
   }
-  $('scanStatus').textContent=isAuto?'Kaart automatisch herkennen…':'Kaart wordt gelezen… dit kan enkele seconden duren.';
+
+  $('scanProgress').style.width='5%';
+
   try{
-    const result=await Tesseract.recognize(data,'eng',{logger:m=>{
-      if(m.status==='recognizing text'){
-        $('scanProgress').style.width=Math.round((m.progress||0)*100)+'%';
-        $('scanStatus').textContent=(isAuto?'Automatisch herkennen… ':'Kaart lezen… ')+Math.round((m.progress||0)*100)+'%';
-      }
-    }});
-    const p=parseOCR(result.data?.text||'');
-    const confident=!!(p.name&&p.number) || (!!p.number&&String(p.number).length>=2);
+    const img=new Image();
+    await new Promise((resolve,reject)=>{
+      img.onload=resolve;
+      img.onerror=reject;
+      img.src=data;
+    });
+
+    const p=await zcSmartRecognizeSource(img,isAuto);
+    const confident=!!p.number && (!!p.name || String(p.number).length>=2);
 
     if(confident){
       stopAutoScan();
-      $('q').value=p.name||'';$('number').value=p.number||'';
+      $('q').value=p.name||'';
+      $('number').value=p.number||'';
       $('scanProgress').style.width='100%';
-      $('scanStatus').textContent=`Herkenning: ${p.name||'naam niet zeker'} ${p.number?'#'+p.number:''}. Kaart wordt automatisch opgezocht…`;
-      ocrBusy=false;stopCamera();
+      $('scanStatus').textContent=`Herkenning: ${p.name||'naam wordt via nummer bepaald'} ${p.number?'#'+p.number:''}. Kaart wordt opgezocht…`;
+      ocrBusy=false;
+      stopCamera();
+
       setTimeout(async()=>{
-        closeScanner();await searchCards();
+        closeScanner();
+        await searchCards();
         if(selectedCard)showToast('Kaart automatisch herkend en gevonden.');
-        else showToast('Kaartgegevens herkend, maar nog geen exacte kaart gevonden.');
-      },250);
+        else showToast('Nummer/naam herkend, maar nog geen exacte kaart gevonden.');
+      },180);
       return;
     }
 
     $('scanProgress').style.width='0';
+
     if(isAuto){
-      $('scanStatus').textContent='Nog niet zeker. Houd de kaart stil en volledig in beeld…';
+      $('scanStatus').textContent='Nog niet zeker. Houd kaart stil; snelle nieuwe poging volgt…';
       ocrBusy=false;
-      if(autoScanAttempts<8)scheduleAutoScan(1500);
-      else $('scanStatus').textContent='Automatische herkenning is niet zeker. Gebruik “Scan nu” of maak/kies een foto.';
+      if(autoScanAttempts<6)scheduleAutoScan(900);
+      else $('scanStatus').textContent='Automatisch niet zeker. Gebruik “Scan nu” of kies een scherpe foto.';
       return;
     }
-    $('scanStatus').textContent='Naam/nummer niet duidelijk herkend. Probeer opnieuw of kies een scherpere foto.';
+
+    $('scanStatus').textContent='Naam/nummer niet duidelijk genoeg. Houd vooral boven- en onderrand scherp in beeld.';
   }catch(e){
+    console.error('Scanner OCR:',e);
     if(isAuto){
-      $('scanStatus').textContent='Automatische herkenning probeert opnieuw…';
+      $('scanStatus').textContent='Herkenning probeert opnieuw…';
       ocrBusy=false;
-      if(autoScanAttempts<8)scheduleAutoScan(1800);
+      if(autoScanAttempts<6)scheduleAutoScan(1100);
       return;
     }
     $('scanStatus').textContent='Herkennen mislukt. Probeer opnieuw.';
   }
+
   ocrBusy=false;
 }
-window.addEventListener('beforeunload',stopCamera);
+window.addEventListener('beforeunload',()=>{
+  stopCamera();
+  if(zcOcrWorker){try{zcOcrWorker.terminate()}catch(e){}}
+});
 
 const zcSetInput=$('set'),zcSetBox=$('setDropdown');
 zcSetInput.addEventListener('focus',zcOpenSetDropdown);
