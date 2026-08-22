@@ -118,8 +118,34 @@
   }
 }
 
+
+/* v12 - grote visueel geverifieerde resultaten */
+.result-chip{
+  min-width:400px !important;
+  max-width:520px !important;
+  min-height:168px !important;
+  padding:16px 18px !important;
+  gap:18px !important;
+}
+.result-chip img{
+  width:104px !important;
+  height:146px !important;
+  flex:0 0 104px !important;
+}
+.result-chip span{
+  font-size:20px !important;
+  line-height:1.4 !important;
+}
+@media(max-width:700px){
+  .result-chip{
+    min-width:91vw !important;
+    max-width:91vw !important;
+    min-height:174px !important;
+  }
+}
+
 </style>
-<!-- ZamexCards Price Checker v11.4 base card first, variants second -->
+<!-- ZamexCards Price Checker v12.0 hybrid OCR + visual artwork verification -->
 </head>
 <body>
 <div class="app">
@@ -2336,83 +2362,217 @@ function zcOrderVariantResults(cards,preferred=''){
   });
 }
 
+
+function zcVisionCropCanvas(source){
+  const b=zcCardBounds(source);
+  const c=document.createElement('canvas');
+  c.width=192;
+  c.height=268;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(source,b.x,b.y,b.w,b.h,0,0,c.width,c.height);
+  return c;
+}
+
+function zcVisionDescriptorFromCanvas(canvas){
+  const small=document.createElement('canvas');
+  small.width=24;
+  small.height=34;
+  const ctx=small.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(canvas,0,0,small.width,small.height);
+  const d=ctx.getImageData(0,0,small.width,small.height).data;
+
+  const gray=[];
+  const histR=Array(8).fill(0),histG=Array(8).fill(0),histB=Array(8).fill(0);
+  let sum=0,sum2=0,n=0;
+
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i],g=d[i+1],b=d[i+2];
+    const y=.299*r+.587*g+.114*b;
+    gray.push(y);sum+=y;sum2+=y*y;n++;
+    histR[Math.min(7,r>>5)]++;
+    histG[Math.min(7,g>>5)]++;
+    histB[Math.min(7,b>>5)]++;
+  }
+
+  const mean=sum/n;
+  const std=Math.sqrt(Math.max(1,sum2/n-mean*mean));
+  const norm=gray.map(v=>(v-mean)/std);
+
+  const h=[...histR,...histG,...histB].map(v=>v/n);
+  return {norm,h};
+}
+
+function zcCosine(a,b){
+  let dot=0,aa=0,bb=0;
+  const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++){dot+=a[i]*b[i];aa+=a[i]*a[i];bb+=b[i]*b[i]}
+  if(!aa||!bb)return 0;
+  return dot/Math.sqrt(aa*bb);
+}
+
+function zcHistSimilarity(a,b){
+  let s=0;
+  const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++)s+=Math.min(a[i],b[i]);
+  return s/3; // 3 colour histograms
+}
+
+function zcVisionSimilarity(a,b){
+  if(!a||!b)return 0;
+  const shape=(zcCosine(a.norm,b.norm)+1)/2;
+  const colour=zcHistSimilarity(a.h,b.h);
+  return shape*.72+colour*.28;
+}
+
+async function zcLoadVisionImage(url,timeout=4500){
+  if(!url)return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeout);
+  try{
+    const res=await fetch(url,{mode:'cors',cache:'force-cache',signal:controller.signal});
+    if(!res.ok)return null;
+    const blob=await res.blob();
+    if('createImageBitmap' in window){
+      return await createImageBitmap(blob);
+    }
+    return await new Promise((resolve,reject)=>{
+      const img=new Image();
+      const objectUrl=URL.createObjectURL(blob);
+      img.onload=()=>{URL.revokeObjectURL(objectUrl);resolve(img)};
+      img.onerror=e=>{URL.revokeObjectURL(objectUrl);reject(e)};
+      img.src=objectUrl;
+    });
+  }catch(e){
+    return null;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function zcCandidateImageUrls(card){
+  return [...new Set([
+    card?.image,
+    ...(card?.imageCandidates||[])
+  ].filter(Boolean))].slice(0,3);
+}
+
+async function zcVisualScoreCandidate(scanDescriptor,card){
+  const urls=zcCandidateImageUrls(card);
+  let best=0;
+  for(const url of urls){
+    const img=await zcLoadVisionImage(url);
+    if(!img)continue;
+    try{
+      const c=document.createElement('canvas');
+      c.width=192;c.height=268;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      const desc=zcVisionDescriptorFromCanvas(c);
+      best=Math.max(best,zcVisionSimilarity(scanDescriptor,desc));
+    }catch(e){}
+    if(best>=.90)break;
+  }
+  return best;
+}
+
+async function zcHybridCandidatePool(rec){
+  const pool=[];
+  const seen=new Set();
+
+  const add=cards=>{
+    for(const c of cards||[]){
+      const key=zcBaseCardKey(c);
+      if(!seen.has(key)){seen.add(key);pool.push(c)}
+    }
+  };
+
+  // Exact setcode+number first.
+  if(rec.setCode&&rec.number){
+    add(await zcDirectExactSetCollector(rec));
+  }
+
+  // Name+number.
+  if(rec.name&&rec.number){
+    add(await zcGlobalCardSearch(zcParseSearch(rec.name,'',rec.number),''));
+  }
+
+  // Name-only is useful if the number OCR was damaged.
+  if(rec.name){
+    add(await zcGlobalCardSearch(zcParseSearch(rec.name,'',''),''));
+  }
+
+  // Number-only is useful only as a candidate source; visual verification
+  // prevents unrelated cards from being accepted.
+  if(rec.number){
+    add(await zcGlobalCardSearch(zcParseSearch('','',rec.number),''));
+  }
+
+  return pool.slice(0,18);
+}
+
+async function zcHybridRankCandidates(rec,source,cards){
+  if(!cards.length)return [];
+
+  let scanDescriptor=null;
+  try{
+    scanDescriptor=zcVisionDescriptorFromCanvas(zcVisionCropCanvas(source));
+  }catch(e){}
+
+  const ranked=[];
+  for(const c of cards){
+    const text=zcIdentityScore(rec,c);
+    const vision=scanDescriptor?await zcVisualScoreCandidate(scanDescriptor,c):0;
+
+    // visual score is decisive against completely different artwork.
+    // Text helps choose among reprints/closely related cards.
+    const combined=vision*.72 + Math.max(0,Math.min(1,text.score/150))*.28;
+
+    ranked.push({
+      c,
+      vision,
+      textScore:text.score,
+      signals:text.signals,
+      combined
+    });
+  }
+
+  ranked.sort((a,b)=>b.combined-a.combined);
+  return ranked;
+}
+
 async function zcFindScannedCard(recognized){
   if(!recognized?.name && !recognized?.number)return [];
 
-  // STEP 1: try the normal card identity routes.
-  let cards=[];
-
-  // Exact setcode + number first.
-  if(recognized.setCode && recognized.number){
-    cards=await zcDirectExactSetCollector(recognized);
-  }
-
-  // Name + number is the most reliable general fallback.
-  if(!cards.length && recognized.name && recognized.number){
-    cards=await zcGlobalCardSearch(
-      zcParseSearch(recognized.name,'',recognized.number),
-      ''
-    );
-  }
-
-  // If OCR got the set total but missed setcode, search by name+number then filter by total.
-  if(!cards.length && recognized.name){
-    cards=await zcGlobalCardSearch(
-      zcParseSearch(recognized.name,'',recognized.number||''),
-      ''
-    );
-  }
-
-  // Do not use variant/finish in any identity lookup.
-  cards=zcDeduplicateScanCandidates(cards);
+  const cards=await zcHybridCandidatePool(recognized);
   if(!cards.length)return [];
 
-  // STEP 2: score the base card identity only.
-  const ranked=cards.map(c=>({
-    c,
-    ...zcIdentityScore(recognized,c)
-  })).sort((a,b)=>b.score-a.score);
+  const ranked=await zcHybridRankCandidates(recognized,zcLastScanSource,cards);
+  if(!ranked.length)return [];
 
-  // Strong exact route: same name + same card number.
-  if(recognized.name && recognized.number){
-    const exact=ranked.filter(x=>
-      zcNormCardNumber(x.c.number||'')===zcNormCardNumber(recognized.number) &&
-      zcNameScore(recognized.name,x.c.name||'')>=.82
-    );
-    if(exact.length===1)return [exact[0].c];
-  }
-
-  // Strong exact route: same setcode + same card number.
-  if(recognized.setCode && recognized.number){
-    const rs=String(recognized.setCode).toUpperCase();
-    const exact=ranked.filter(x=>
-      zcNormCardNumber(x.c.number||'')===zcNormCardNumber(recognized.number) &&
-      zcSetCodeCandidates(x.c).includes(rs)
-    );
-    if(exact.length===1)return [exact[0].c];
-  }
-
-  // Strong exact route: same number + same printed total.
-  if(recognized.number && recognized.total){
-    const exact=ranked.filter(x=>
-      zcNormCardNumber(x.c.number||'')===zcNormCardNumber(recognized.number) &&
-      zcNormCardNumber(zcCardPrintedTotal(x.c))===zcNormCardNumber(recognized.total)
-    );
-    if(exact.length===1)return [exact[0].c];
-  }
-
-  // If the best base-card identity is clearly ahead, use it.
   const top=ranked[0],second=ranked[1];
-  if(top){
-    const gap=second?top.score-second.score:999;
-    if(top.score>=65 && gap>=14)return [top.c];
+
+  // Never accept visually unrelated artwork.
+  // A score below ~0.58 usually means a completely different card/art.
+  if(top.vision>0 && top.vision<.58)return [];
+
+  // Strong visual match + at least one useful text signal.
+  if(top.vision>=.72 && (top.signals>=1 || top.textScore>=25)){
+    const gap=second?top.combined-second.combined:999;
+    if(gap>=.05 || top.vision>=.82)return [top.c];
   }
 
-  // Otherwise show only plausible BASE cards. Never mix variants yet.
-  return ranked
-    .filter(x=>x.score>=Math.max(25,(top?.score||0)-10))
-    .slice(0,6)
-    .map(x=>x.c);
+  // Strong text identity is allowed only when visual verification does not contradict it.
+  if(top.signals>=2 && top.textScore>=70 && (top.vision===0 || top.vision>=.60)){
+    const gap=second?top.combined-second.combined:999;
+    if(gap>=.05)return [top.c];
+  }
+
+  // Show only visually plausible candidates.
+  const safe=ranked.filter(x=>
+    (x.vision>=.62 && (x.signals>=1 || x.textScore>=20)) ||
+    (x.vision===0 && x.signals>=2 && x.textScore>=70)
+  ).slice(0,6);
+
+  return safe.map(x=>x.c);
 }
 
 async function zcApplyScannedCard(card,sourceImage=null){
@@ -2690,7 +2850,7 @@ async function scanImage(data,isAuto=false){
       setTimeout(()=>{
         closeScanner();
         $('detailPanel').innerHTML='<div class="placeholder"><strong>Meerdere kaarten passen bij de scan.</strong><br>Kies hierboven de juiste kaart.</div>';
-        showToast('Meerdere mogelijke kaarten gevonden. Kies de juiste kaart.');
+        showToast('Meerdere visueel passende kaarten gevonden. Kies de juiste kaart.');
       },220);
       return;
     }
