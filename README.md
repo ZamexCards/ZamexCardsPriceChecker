@@ -1,20 +1,16 @@
-# ZamexCards Price Checker v10.0 – stabiele scanflow
+# ZamexCards Price Checker v10.1 – kaartuitsnede scanner
 
-Deze versie vereenvoudigt de scanner bewust.
+Probleem uit v10.0:
+OCR las boven- en onderzones relatief aan het volledige camerabeeld.
+Als de kaart niet exact schermvullend stond, kon de naam of collector number buiten de OCR-zone vallen.
 
-Flow:
-1. Camera opent.
-2. Autofocus/exposure krijgt circa 1,3 seconde.
-3. Automatisch wordt precies één frame vastgezet.
-4. Alleen naam bovenaan wordt gelezen.
-5. Alleen kaartnummer/totaal/set onderaan wordt gelezen.
-6. De kaartdatabase bevestigt de identiteit.
-7. Alleen bevestigde databasegegevens worden in de Price Checker gezet.
+v10.1:
+- berekent eerst een centrale Pokémonkaart-uitsnede met de juiste kaartverhouding;
+- OCR-zones voor naam en nummer zijn relatief aan die kaartuitsnede;
+- iets extra marge houdt rekening met lichte scheefstand;
+- collector-number zone wordt groter opgeschaald;
+- bij gemist kaartnummer volgt één extra sparse-text OCR-pass;
+- minder agressieve beeldbewerking voor holo/reverse kaarten.
 
-Geen eindeloze OCR-loop meer.
-Geen ruwe OCR-onzin in de zoekvelden.
-Geen willekeurige eerste kaart op basis van alleen hetzelfde nummer.
-
-Handmatige Scan nu, Foto maken en Uit galerij kiezen gebruiken exact dezelfde herkenningsflow.
-Zoom +/- en autofocus blijven behouden.
-De set-dropdown en overige functies blijven behouden.
+Het doel is dat een duidelijke scan zoals Vullaby 049/084 niet meer wordt afgekeurd alleen omdat
+de kaart niet exact van rand tot rand in het camerabeeld staat.
