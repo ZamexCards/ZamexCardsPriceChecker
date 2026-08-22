@@ -1,12 +1,22 @@
-# ZamexCards Price Checker v7.2
+# ZamexCards Price Checker v7.3 – prijsvalidatie
 
-Verbeteringen:
-- extra afbeeldingsfallback via de officiële Pokémon TCG image CDN;
-- ontbrekende TCGdex-afbeeldingen worden aangevuld via Pokémon TCG API;
-- eerst gemiddelde 30-dagenprijs waar beschikbaar;
-- ontbreekt die, dan wordt TCGplayer actuele marktprijs als fallback getoond;
-- fallbackprijzen in TCGplayer worden als USD getoond om geen onbetrouwbare EUR-conversie te verzinnen;
-- de kaartenlijst toont dezelfde fallbackprijs per kaart;
-- totaaltelling in EUR gebruikt alleen echte EUR 30-dagenprijzen, zodat valuta niet door elkaar worden opgeteld.
+Nieuwe bescherming tegen verkeerde prijzen:
 
-Special Delivery Charizard SWSH075 krijgt hierdoor een echte kaartafbeelding via images.pokemontcg.io en, waar de API marktdata levert, een actuele TCGplayer marktprijs als fallback.
+- prijs wordt alleen gekoppeld bij exacte match op:
+  - kaartnaam
+  - set
+  - kaartnummer
+  - gekozen uitvoering
+- TCGdex zoekresultaten worden niet meer op alleen kaartnummer gekoppeld;
+- een willekeurige eerste zoekhit wordt niet meer als prijsbron gebruikt;
+- uitbijtercontrole:
+  - als een 30-dagenprijs meer dan 2,25× afwijkt van andere beschikbare marktprijzen,
+    wordt die prijs verworpen;
+- als de prijs niet betrouwbaar kan worden bevestigd:
+  - `Geen betrouwbare 30-dagenprijs beschikbaar`
+  - dus géén fout bedrag tonen.
+
+Dit is bewust strenger: liever geen prijs dan een verkeerde prijs.
+
+Upload alleen `index.html` naar GitHub Pages.
+Daarna Commit changes, 1-2 minuten wachten en Ctrl+F5.

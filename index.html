@@ -12,7 +12,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v7.2 image + multi-source price fallbacks -->
+<!-- ZamexCards Price Checker v7.3 strict exact-match price validation -->
 </head>
 <body>
 <div class="app">
@@ -220,6 +220,54 @@ function zcAvg30FromPricing(pricing,isFoil=false){
   const raw=isFoil ? (p['avg30-holo'] ?? p.avg30) : p.avg30;
   const n=Number(raw);
   return Number.isFinite(n)&&n>0?n:null;
+}
+
+function zcNormText(v=''){
+  return String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+function zcNormCardNumber(v=''){
+  return String(v).toUpperCase().replace(/\s+/g,'').replace(/^0+(?=\d)/,'');
+}
+function zcExactIdentityMatch(base,candidate){
+  if(!base||!candidate)return false;
+  const nameOK=zcNormText(base.name)===zcNormText(candidate.name);
+  const numOK=zcNormCardNumber(base.number||base.localId)===zcNormCardNumber(candidate.number||candidate.localId);
+  const setA=zcNormText(base.set||base.setName||'');
+  const setB=zcNormText(candidate.set||candidate.setName||candidate.set?.name||'');
+  const setOK=!setA||!setB||setA===setB;
+  return nameOK&&numOK&&setOK;
+}
+function zcMedian(values){
+  const a=values.filter(v=>Number.isFinite(Number(v))&&Number(v)>0).map(Number).sort((a,b)=>a-b);
+  if(!a.length)return null;
+  const m=Math.floor(a.length/2);
+  return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+function zcRejectOutlier(primary, comparisons=[]){
+  const p=Number(primary);
+  const refs=comparisons.filter(v=>Number.isFinite(Number(v))&&Number(v)>0).map(Number);
+  if(!Number.isFinite(p)||p<=0)return null;
+  if(!refs.length)return p;
+  const med=zcMedian(refs);
+  if(!med)return p;
+  const ratio=Math.max(p/med,med/p);
+  // Very strict: reject if > 2.25x away from the median of other sources.
+  return ratio>2.25?null:p;
+}
+function zcSafeAvg30(card,selectedVariant){
+  const exact=zcAvg30ForSelection(card,selectedVariant);
+  if(exact==null)return null;
+
+  // Compare against any fallback marketplace values we already have on the card object.
+  const refs=[];
+  if(Number.isFinite(Number(card?.tcgplayerMarket)))refs.push(Number(card.tcgplayerMarket));
+  if(Number.isFinite(Number(card?.fallbackMarket)))refs.push(Number(card.fallbackMarket));
+  if(Array.isArray(card?.marketComparisons)){
+    for(const v of card.marketComparisons)if(Number.isFinite(Number(v)))refs.push(Number(v));
+  }
+
+  return zcRejectOutlier(exact,refs);
 }
 function zcAvg30ForSelection(card,selectedVariant){
   const variants=card?.variantsDetailed||[];
@@ -653,7 +701,11 @@ async function zcAttachTcgdexMarket(card,parsed){
     let full=null;
     // If TCGdex set ID is known, direct card lookup is best.
     if(parsed?.setId&&card?.number){
-      full=await zcTcgdexCardById(parsed.setId,card.number);
+      const candidate=await zcTcgdexCardById(parsed.setId,card.number);
+      if(candidate && zcExactIdentityMatch(
+        {name:card.name,number:card.number,set:card.set},
+        {name:candidate.name,number:candidate.localId||candidate.number,set:candidate.set?.name||candidate.set||card.set}
+      )) full=candidate;
     }
     // Otherwise search by name + number.
     if(!full){
@@ -666,9 +718,13 @@ async function zcAttachTcgdexMarket(card,parsed){
         try{
           const list=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards?${params}`);
           if(Array.isArray(list)&&list.length){
-            const brief=list.find(x=>zcNormNumber(x.localId||'')===zcNormNumber(card.number||''))||list[0];
-            full=await zcTcgdexFullCard(brief.id,lang)||brief;
-            if(full)break;
+            const brief=list.find(x=>zcNormNumber(x.localId||'')===zcNormNumber(card.number||'') && (!card.name||zcNormText(x.name||'')===zcNormText(card.name||'')))||null;
+            if(!brief)continue;
+            const candidate=await zcTcgdexFullCard(brief.id,lang)||brief;
+            if(candidate && zcExactIdentityMatch({name:card.name,number:card.number,set:card.set}, {name:candidate.name,number:candidate.localId||candidate.number,set:candidate.set?.name||candidate.set||''})){
+              full=candidate;
+              break;
+            }
           }
         }catch(e){}
       }
@@ -748,12 +804,27 @@ async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
   return [];
 }
 
+
+function zcValidateCardPricing(card){
+  if(!card)return card;
+  const variant=document.getElementById('variant')?.value||'Standard';
+  const safe=zcSafeAvg30(card,variant);
+  card.prices={...(card.prices||zcNoPrice()),average30Days:safe,isReal:safe!=null};
+  if(safe==null){
+    card.prices.source='unavailable';
+  }
+  return card;
+}
+function zcValidateCards(cards){
+  return (cards||[]).map(zcValidateCardPricing);
+}
+
 async function searchCards(e){
   e?.preventDefault();
   $('detailPanel').innerHTML='<div class="placeholder">Kaarten zoeken…</div>';
   $('resultsStrip').innerHTML='';
   try{
-    currentCards=await zcSearchDirect($('q').value,$('set').value,$('number').value,$('rarity').value);
+    currentCards=zcValidateCards(await zcSearchDirect($('q').value,$('set').value,$('number').value,$('rarity').value));
     selectedCard=currentCards[0]||null;
     renderStrip();renderDetail();
     if(!currentCards.length)showToast('Geen kaart gevonden. Controleer setcode, taal en kaartnummer. Voor zeer nieuwe sets wordt ook een aanvullende setindex gebruikt.')
