@@ -7,12 +7,21 @@
 <title>ZamexCards Price Checker</title>
 <style>
 :root{--navy:#031a35;--navy2:#062447;--panel:#071f3f;--panel2:#0a294e;--line:#1b4f76;--green:#44d35b;--teal:#14b99b;--blue:#2d8cff;--text:#f7fbff;--muted:#a9bfd2;--danger:#ff4757;--shadow:0 18px 44px rgba(0,0,0,.25)}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 12% 0,#0a3157 0,#041d39 32%,#02152d 100%);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif;min-height:100vh}.app{max-width:1540px;margin:auto;padding:20px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:14px;min-width:0}.brand img{width:86px;height:86px;object-fit:contain;object-position:center;flex:0 0 auto}.brand-copy{display:flex;flex-direction:column;line-height:1.02}.brand-title{font-size:30px;font-weight:900;letter-spacing:-.4px}.brand-title .green{color:#55d764}.brand-title .blue{color:#55a9ff}.brand-sub{font-size:18px;font-weight:800;margin-top:5px;color:#f7fbff}.brand-fallback{display:none;font-size:28px;font-weight:900}.top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{border:1px solid #31587b;background:#0a2748;color:white;padding:12px 16px;border-radius:10px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}.btn:hover{filter:brightness(1.12)}.btn.primary{border:0;background:linear-gradient(135deg,#58cf62,#37ad50);box-shadow:0 8px 20px rgba(68,211,91,.2)}.btn.blue{border:0;background:linear-gradient(135deg,#1fb5b0,#297fe8)}.btn.ghost{background:#0b2747}.btn.danger{border-color:#65313d;color:#ff9ca5;background:#251726}.btn.sm{padding:8px 10px;min-height:36px}.panel{background:linear-gradient(180deg,rgba(7,31,63,.97),rgba(5,25,52,.97));border:1px solid #2c8c47;border-radius:16px;box-shadow:var(--shadow)}.search-panel{padding:16px;margin-bottom:14px}.search-grid{display:grid;grid-template-columns:1.45fr 1.2fr 1fr;gap:12px;align-items:end}.field label{display:block;font-size:13px;color:#d7e5ef;margin:0 0 6px}.field input,.field select{width:100%;border:1px solid #345875;background:#0b294c;color:white;border-radius:9px;padding:12px 13px;font-size:15px;outline:none;min-height:44px}.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(68,211,91,.12)}.options-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}.search-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.search-actions .btn.primary{min-width:210px}.search-actions .btn.blue{min-width:170px}.grading-options{display:none;grid-template-columns:1fr 1fr;gap:12px;grid-column:span 2}.grading-options.show{display:grid}.workspace{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(350px,.8fr);gap:14px;align-items:start}.main{min-width:0}.list-panel{padding:14px;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}.section-title h2{font-size:18px;margin:0}.section-title .count{font-size:14px}.results-strip{display:flex;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:10px}.result-chip{flex:0 0 auto;display:flex;align-items:center;gap:8px;border:1px solid #2a5279;background:#082746;border-radius:10px;padding:7px 9px;color:white;cursor:pointer;max-width:230px}.result-chip.active{border-color:var(--green)}.result-chip img{width:32px;height:44px;object-fit:cover;border-radius:4px}.result-chip span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.detail{padding:16px}.detail-grid{display:grid;grid-template-columns:280px minmax(260px,1fr) minmax(320px,.95fr);gap:18px}.card-art{text-align:center}.card-art img{width:100%;max-width:260px;aspect-ratio:2.5/3.5;object-fit:contain;border-radius:12px;background:#061b35}.card-art .zoom{font-size:12px;color:#dbe9f5;margin-top:8px}.card-name{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.card-name h1{font-size:30px;margin:6px 0 4px}.sub{color:#e8f1f8;margin-bottom:18px}.info-box,.price-box,.seller-box{border:1px solid #21486e;background:#092444;border-radius:10px;padding:14px}.info-row,.price-row{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)}.info-row:last-child,.price-row:last-child{border-bottom:0}.info-row span:first-child,.price-row span:first-child{color:#e0e9f1}.price-row strong{font-size:22px;color:#54b5ff}.price-row.primary-price strong,.price-row.seller strong{color:#5bdf67}.movement.up{color:#5bdf67;font-weight:900}.movement.down{color:#ff6573;font-weight:900}.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.chart-box{margin-top:14px;padding:14px;border:1px solid #21486e;background:#092444;border-radius:10px}.chart-box h3{margin:0 0 10px;font-size:16px}.chart{width:100%;height:160px}.lower-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:14px;margin-top:14px}.placeholder{padding:50px 20px;text-align:center;color:var(--muted)}.placeholder strong{color:white}.mini{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;padding:12px 0;border-bottom:1px solid #214467;align-items:start}.mini:last-child{border-bottom:0}.mini img{width:58px;height:80px;object-fit:cover;border-radius:6px;background:#061c35}.mini h3{font-size:14px;margin:0 0 3px}.mini-meta{font-size:12px;color:#d7e4ee;line-height:1.45}.mini-right{text-align:right;min-width:106px}.mini-right strong{display:block;font-size:15px}.mini-right small{color:var(--muted)}.qty{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px}.qty button{width:30px;height:30px;border-radius:7px;padding:0}.qty span{font-weight:900;min-width:28px;text-align:center}.item-total{font-size:13px;font-weight:800;margin-top:8px}.summary{margin-top:14px;border:1px solid #22496d;border-radius:12px;padding:14px;background:#061d39}.sum-row{display:flex;justify-content:space-between;gap:12px;margin:7px 0}.sum-row strong{font-size:22px}.sum-row.discount strong{color:#65df5d}.list-tools{display:flex;justify-content:flex-end;margin-top:10px}.empty-list{color:var(--muted);padding:25px 10px;text-align:center}.modal{position:fixed;inset:0;background:rgba(0,10,24,.82);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal.open{display:flex}.modal-box{width:min(620px,100%);max-height:92vh;overflow:auto;background:#061f3d;border:1px solid #2f5d84;border-radius:16px;padding:18px;box-shadow:0 28px 80px rgba(0,0,0,.5)}.modal h2{margin:0 0 8px}.modal p{color:var(--muted)}.camera-frame{position:relative;background:#010a14;border-radius:12px;overflow:hidden;aspect-ratio:3/4;display:grid;place-items:center}.camera-frame video,.camera-frame img{width:100%;height:100%;object-fit:cover}.scan-guide{position:absolute;inset:9% 9%;border:2px solid rgba(88,225,103,.9);border-radius:15px;box-shadow:0 0 0 999px rgba(0,0,0,.18);pointer-events:none}.scan-guide:after{content:'Houd de hele kaart binnen het kader';position:absolute;left:50%;bottom:12px;transform:translateX(-50%);white-space:nowrap;background:rgba(0,0,0,.68);padding:7px 10px;border-radius:8px;font-size:12px}.scanner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.scan-status{margin-top:10px;min-height:24px;font-size:14px;color:#dcebf6}.progress{height:8px;border-radius:999px;background:#092844;overflow:hidden;margin-top:8px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--green));transition:width .2s}.hidden{display:none!important}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0a2948;border:1px solid #3c6384;color:white;padding:12px 16px;border-radius:10px;z-index:70;display:none}.toast.show{display:block}.alert-form input{width:100%;border:1px solid #345875;background:#0b294c;color:white;border-radius:9px;padding:12px 13px;font-size:15px;margin:8px 0 12px}.alerts-list{display:grid;gap:8px}.alert-item{border:1px solid #21486e;border-radius:10px;padding:10px;background:#08223f;display:flex;justify-content:space-between;gap:10px;font-size:13px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 12% 0,#0a3157 0,#041d39 32%,#02152d 100%);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif;min-height:100vh}.app{max-width:1540px;margin:auto;padding:20px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:14px;min-width:0}.brand img{width:86px;height:86px;object-fit:contain;object-position:center;flex:0 0 auto}.brand-copy{display:flex;flex-direction:column;line-height:1.02}.brand-title{font-size:30px;font-weight:900;letter-spacing:-.4px}.brand-title .green{color:#55d764}.brand-title .blue{color:#55a9ff}.brand-sub{font-size:18px;font-weight:800;margin-top:5px;color:#f7fbff}.brand-fallback{display:none;font-size:28px;font-weight:900}.top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{border:1px solid #31587b;background:#0a2748;color:white;padding:12px 16px;border-radius:10px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}.btn:hover{filter:brightness(1.12)}.btn.primary{border:0;background:linear-gradient(135deg,#58cf62,#37ad50);box-shadow:0 8px 20px rgba(68,211,91,.2)}.btn.blue{border:0;background:linear-gradient(135deg,#1fb5b0,#297fe8)}.btn.ghost{background:#0b2747}.btn.danger{border-color:#65313d;color:#ff9ca5;background:#251726}.btn.sm{padding:8px 10px;min-height:36px}.panel{background:linear-gradient(180deg,rgba(7,31,63,.97),rgba(5,25,52,.97));border:1px solid #2c8c47;border-radius:16px;box-shadow:var(--shadow)}.search-panel{padding:16px;margin-bottom:14px}.search-grid{display:grid;grid-template-columns:1.45fr 1.2fr 1fr;gap:12px;align-items:end}.field label{display:block;font-size:13px;color:#d7e5ef;margin:0 0 6px}.field input,.field select{width:100%;border:1px solid #345875;background:#0b294c;color:white;border-radius:9px;padding:12px 13px;font-size:15px;outline:none;min-height:44px}.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(68,211,91,.12)}
+.set-combobox{position:relative}
+.set-dropdown{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:45;background:#071f3d;border:1px solid #345875;border-radius:10px;box-shadow:0 18px 42px rgba(0,0,0,.45);max-height:340px;overflow:auto;display:none}
+.set-dropdown.open{display:block}
+.set-option{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer}
+.set-option:last-child{border-bottom:0}.set-option:hover{background:#0c3157}
+.set-option strong{font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-option small{display:block;margin-top:3px;color:#9fc0d7;font-size:11px}
+.set-option-code{align-self:center;color:#62db6d;font-weight:900;font-size:12px;white-space:nowrap}
+.set-empty{padding:14px;color:#9fb4c5;text-align:center;font-size:13px}.options-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}.search-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.search-actions .btn.primary{min-width:210px}.search-actions .btn.blue{min-width:170px}.grading-options{display:none;grid-template-columns:1fr 1fr;gap:12px;grid-column:span 2}.grading-options.show{display:grid}.workspace{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(350px,.8fr);gap:14px;align-items:start}.main{min-width:0}.list-panel{padding:14px;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}.section-title h2{font-size:18px;margin:0}.section-title .count{font-size:14px}.results-strip{display:flex;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:10px}.result-chip{flex:0 0 auto;display:flex;align-items:center;gap:8px;border:1px solid #2a5279;background:#082746;border-radius:10px;padding:7px 9px;color:white;cursor:pointer;max-width:230px}.result-chip.active{border-color:var(--green)}.result-chip img{width:32px;height:44px;object-fit:cover;border-radius:4px}.result-chip span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.detail{padding:16px}.detail-grid{display:grid;grid-template-columns:280px minmax(260px,1fr) minmax(320px,.95fr);gap:18px}.card-art{text-align:center}.card-art img{width:100%;max-width:260px;aspect-ratio:2.5/3.5;object-fit:contain;border-radius:12px;background:#061b35}.card-art .zoom{font-size:12px;color:#dbe9f5;margin-top:8px}.card-name{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.card-name h1{font-size:30px;margin:6px 0 4px}.sub{color:#e8f1f8;margin-bottom:18px}.info-box,.price-box,.seller-box{border:1px solid #21486e;background:#092444;border-radius:10px;padding:14px}.info-row,.price-row{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)}.info-row:last-child,.price-row:last-child{border-bottom:0}.info-row span:first-child,.price-row span:first-child{color:#e0e9f1}.price-row strong{font-size:22px;color:#54b5ff}.price-row.primary-price strong,.price-row.seller strong{color:#5bdf67}.movement.up{color:#5bdf67;font-weight:900}.movement.down{color:#ff6573;font-weight:900}.detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.chart-box{margin-top:14px;padding:14px;border:1px solid #21486e;background:#092444;border-radius:10px}.chart-box h3{margin:0 0 10px;font-size:16px}.chart{width:100%;height:160px}.lower-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:14px;margin-top:14px}.placeholder{padding:50px 20px;text-align:center;color:var(--muted)}.placeholder strong{color:white}.mini{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;padding:12px 0;border-bottom:1px solid #214467;align-items:start}.mini:last-child{border-bottom:0}.mini img{width:58px;height:80px;object-fit:cover;border-radius:6px;background:#061c35}.mini h3{font-size:14px;margin:0 0 3px}.mini-meta{font-size:12px;color:#d7e4ee;line-height:1.45}.mini-right{text-align:right;min-width:106px}.mini-right strong{display:block;font-size:15px}.mini-right small{color:var(--muted)}.qty{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px}.qty button{width:30px;height:30px;border-radius:7px;padding:0}.qty span{font-weight:900;min-width:28px;text-align:center}.item-total{font-size:13px;font-weight:800;margin-top:8px}.summary{margin-top:14px;border:1px solid #22496d;border-radius:12px;padding:14px;background:#061d39}.sum-row{display:flex;justify-content:space-between;gap:12px;margin:7px 0}.sum-row strong{font-size:22px}.sum-row.discount strong{color:#65df5d}.list-tools{display:flex;justify-content:flex-end;margin-top:10px}.empty-list{color:var(--muted);padding:25px 10px;text-align:center}.modal{position:fixed;inset:0;background:rgba(0,10,24,.82);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal.open{display:flex}.modal-box{width:min(620px,100%);max-height:92vh;overflow:auto;background:#061f3d;border:1px solid #2f5d84;border-radius:16px;padding:18px;box-shadow:0 28px 80px rgba(0,0,0,.5)}.modal h2{margin:0 0 8px}.modal p{color:var(--muted)}.camera-frame{position:relative;background:#010a14;border-radius:12px;overflow:hidden;aspect-ratio:3/4;display:grid;place-items:center}.camera-frame video,.camera-frame img{width:100%;height:100%;object-fit:contain;background:#010a14}.scan-guide{position:absolute;inset:3.5% 4%;border:2px solid rgba(88,225,103,.9);border-radius:15px;box-shadow:0 0 0 999px rgba(0,0,0,.18);pointer-events:none}.scan-guide:after{content:'Houd de hele kaart binnen het kader';position:absolute;left:50%;bottom:12px;transform:translateX(-50%);white-space:nowrap;background:rgba(0,0,0,.68);padding:7px 10px;border-radius:8px;font-size:12px}.scanner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.scan-status{margin-top:10px;min-height:24px;font-size:14px;color:#dcebf6}.progress{height:8px;border-radius:999px;background:#092844;overflow:hidden;margin-top:8px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--green));transition:width .2s}.hidden{display:none!important}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0a2948;border:1px solid #3c6384;color:white;padding:12px 16px;border-radius:10px;z-index:70;display:none}.toast.show{display:block}.alert-form input{width:100%;border:1px solid #345875;background:#0b294c;color:white;border-radius:9px;padding:12px 13px;font-size:15px;margin:8px 0 12px}.alerts-list{display:grid;gap:8px}.alert-item{border:1px solid #21486e;border-radius:10px;padding:10px;background:#08223f;display:flex;justify-content:space-between;gap:10px;font-size:13px}
 @media(max-width:1180px){.detail-grid{grid-template-columns:220px 1fr}.prices-column{grid-column:1/-1}.workspace{grid-template-columns:minmax(0,1.65fr) minmax(320px,.85fr)}.options-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v8.2 scanner list + gallery fix -->
+<!-- ZamexCards Price Checker v8.3 searchable released-set dropdown + auto camera scan -->
 </head>
 <body>
 <div class="app">
@@ -32,7 +41,11 @@
 <form id="searchForm">
 <div class="search-grid">
   <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
-  <div class="field"><label>Set / setcode</label><input id="set" placeholder="bijv. BRS, SVP, sv2a, s12a, setnaam"></div>
+  <div class="field set-combobox">
+  <label>Set / setcode</label>
+  <input id="set" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="setDropdown" placeholder="Typ setcode of kies een set…">
+  <div id="setDropdown" class="set-dropdown" role="listbox"></div>
+</div>
   <div class="field"><label>Kaartnummer</label><input id="number" placeholder="bijv. 199 of TG14"></div>
 </div>
 <div class="options-grid">
@@ -96,7 +109,7 @@
 
 <div class="modal" id="scanModal"><div class="modal-box">
   <div class="section-title"><h2>📷 Pokémonkaart scannen</h2><button class="btn sm" id="closeScanner">✕</button></div>
-  <p>Houd de kaart recht, zorg voor voldoende licht en voorkom glans. Je kunt live scannen, een nieuwe foto maken of een bestaande foto uit je galerij kiezen.</p>
+  <p>Houd de hele kaart binnen het kader. De scanner probeert automatisch te herkennen zodra de camera stabiel is. Je kunt ook handmatig scannen, een foto maken of een afbeelding uit je galerij kiezen.</p>
   <div class="camera-frame"><video id="camera" playsinline autoplay muted></video><img id="capturedPreview" class="hidden" alt="Gescande kaart"><div class="scan-guide"></div></div>
   <canvas id="captureCanvas" class="hidden"></canvas>
   <input id="cameraPhotoInput" class="hidden" type="file" accept="image/*" capture="environment">
@@ -679,6 +692,7 @@ async function zcLoadGlobalCatalog(force=false){
               lang,
               id:String(s.id),
               name:String(s.name||s.id),
+              releaseDate:s.releaseDate||s.release_date||'',
               aliases:[String(s.id),String(s.name||'')].filter(Boolean)
             });
           }
@@ -709,6 +723,85 @@ async function zcLoadGlobalCatalog(force=false){
   })();
   try{return await ZC_CATALOG_PROMISE}
   finally{ZC_CATALOG_PROMISE=null}
+}
+
+function zcPrimarySetLanguages(){
+  const lang=zcSelectedLanguage();
+  if(lang==='English')return ['en'];
+  if(lang==='Japanese')return ['ja'];
+  if(lang==='Chinese')return ['zh-cn','zh-tw'];
+  if(lang==='Korean')return ['ko'];
+  if(lang==='German')return ['de'];
+  if(lang==='French')return ['fr'];
+  if(lang==='Italian')return ['it'];
+  if(lang==='Spanish')return ['es'];
+  if(lang==='Dutch')return ['nl'];
+  return ['en'];
+}
+function zcDateValue(v){const t=Date.parse(String(v||''));return Number.isFinite(t)?t:0}
+function zcIsReleasedSet(entry){
+  const t=zcDateValue(entry?.releaseDate);
+  if(!t)return true;
+  const endToday=new Date();endToday.setHours(23,59,59,999);
+  return t<=endToday.getTime();
+}
+function zcEnglishCodeForSet(entry){
+  if(entry?.ptcgoCode)return entry.ptcgoCode;
+  if(entry?.lang!=='en')return entry?.id||'';
+  const n=zcCatalogNorm(entry?.name||'');
+  const official=ZC_GLOBAL_CATALOG.find(e=>e.source==='pokemontcg'&&zcCatalogNorm(e.name||'')===n&&e.ptcgoCode);
+  return official?.ptcgoCode||entry?.id||'';
+}
+function zcSetChoiceValue(entry){
+  return zcSelectedLanguage()==='English'?zcEnglishCodeForSet(entry):(entry?.id||entry?.name||'');
+}
+function zcSetDropdownItems(){
+  const langs=zcPrimarySetLanguages();
+  let entries=ZC_GLOBAL_CATALOG.filter(e=>langs.includes(e.lang)&&zcIsReleasedSet(e));
+  const byName=new Map();
+  for(const e of entries){
+    const key=zcCatalogNorm(e.name||e.id);
+    const old=byName.get(key);
+    if(!old){byName.set(key,e);continue}
+    if(zcSelectedLanguage()==='English'){
+      if(e.source==='pokemontcg'&&old.source!=='pokemontcg')byName.set(key,e);
+    }else if(e.source==='tcgdex'&&old.source!=='tcgdex')byName.set(key,e);
+  }
+  entries=[...byName.values()];
+  entries.sort((a,b)=>{
+    const db=zcDateValue(b.releaseDate),da=zcDateValue(a.releaseDate);
+    if(db!==da)return db-da;
+    return String(b.id||'').localeCompare(String(a.id||''),undefined,{numeric:true});
+  });
+  return entries;
+}
+function zcRenderSetDropdown(){
+  const box=$('setDropdown'),input=$('set');if(!box||!input)return;
+  const q=zcCatalogNorm(input.value||''),raw=String(input.value||'').trim().toUpperCase();
+  let items=zcSetDropdownItems();
+  if(q){
+    items=items.filter(e=>{
+      const code=String(zcSetChoiceValue(e)||'').toUpperCase();
+      return code.includes(raw)||zcCatalogNorm(e.name||'').includes(q)||zcCatalogAliases(e).some(a=>zcCatalogNorm(a).includes(q));
+    });
+  }
+  items=items.slice(0,120);
+  box.innerHTML=items.length?items.map(e=>{
+    const code=zcSetChoiceValue(e);
+    const date=e.releaseDate?new Date(e.releaseDate).toLocaleDateString('nl-NL'):'Promo / special';
+    return `<div class="set-option" role="option" data-value="${esc(code)}" data-name="${esc(e.name||'')}">
+      <div><strong>${esc(e.name||e.id)}</strong><small>${esc(date)}</small></div>
+      <div class="set-option-code">${esc(code)}</div>
+    </div>`;
+  }).join(''):'<div class="set-empty">Geen uitgebrachte sets gevonden voor deze taal.</div>';
+  box.classList.add('open');input.setAttribute('aria-expanded','true');
+}
+function zcCloseSetDropdown(){const box=$('setDropdown'),input=$('set');if(box)box.classList.remove('open');if(input)input.setAttribute('aria-expanded','false')}
+async function zcOpenSetDropdown(){
+  const box=$('setDropdown');if(box&&!ZC_GLOBAL_CATALOG.length)box.innerHTML='<div class="set-empty">Sets laden…</div>';
+  if(box)box.classList.add('open');
+  try{await zcLoadGlobalCatalog(false)}catch(e){}
+  zcRenderSetDropdown();
 }
 async function zcResolveSetFromCatalog(query){
   const q=zcClean(query);
@@ -1057,16 +1150,64 @@ function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show')
 $('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('graded').addEventListener('change',()=>$('gradingOptions').classList.toggle('show',$('graded').value==='yes'));$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('rarity').value='';$('variant').value='Standard';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
 
+
+let autoScanTimer=null,autoScanAttempts=0,autoScanActive=false;
+function stopAutoScan(){autoScanActive=false;if(autoScanTimer){clearTimeout(autoScanTimer);autoScanTimer=null}}
+async function zcMinimizeCameraZoom(){
+  try{
+    const track=stream?.getVideoTracks?.()[0];if(!track)return;
+    const caps=track.getCapabilities?.()||{};
+    if(caps.zoom&&Number.isFinite(Number(caps.zoom.min)))await track.applyConstraints({advanced:[{zoom:Number(caps.zoom.min)}]});
+  }catch(e){}
+}
+function zcCaptureCurrentFrame(){
+  const v=$('camera');if(!v?.videoWidth)return null;
+  const c=$('captureCanvas'),max=1280,scale=Math.min(1,max/v.videoWidth);
+  c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);
+  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',.88);
+}
+function scheduleAutoScan(delay=1600){
+  if(!autoScanActive)return;
+  if(autoScanTimer)clearTimeout(autoScanTimer);
+  autoScanTimer=setTimeout(autoCaptureAndRecognize,delay);
+}
+async function autoCaptureAndRecognize(){
+  if(!autoScanActive||ocrBusy||!$('scanModal').classList.contains('open')){scheduleAutoScan(1300);return}
+  const data=zcCaptureCurrentFrame();if(!data){scheduleAutoScan(800);return}
+  autoScanAttempts++;await scanImage(data,true);
+}
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.
-async function openScanner(){$('scanModal').classList.add('open');$('capturedPreview').classList.add('hidden');$('camera').classList.remove('hidden');$('retryBtn').classList.add('hidden');$('scanProgress').style.width='0';$('scanStatus').textContent='Camera wordt gestart…';try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1440},height:{ideal:1920}},audio:false});$('camera').srcObject=stream;$('scanStatus').textContent='Camera klaar. Houd de hele kaart binnen het groene kader.'}catch(e){$('scanStatus').textContent='Camera kon niet worden geopend. Gebruik “Foto kiezen/maken” als alternatief.'}}
+async function openScanner(){
+  $('scanModal').classList.add('open');
+  $('capturedPreview').classList.add('hidden');
+  $('camera').classList.remove('hidden');
+  $('retryBtn').classList.add('hidden');
+  $('scanProgress').style.width='0';
+  $('scanStatus').textContent='Camera wordt gestart…';
+  stopAutoScan();autoScanAttempts=0;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},aspectRatio:{ideal:16/9}},
+      audio:false
+    });
+    const video=$('camera');video.srcObject=stream;video.setAttribute('playsinline','');
+    await video.play().catch(()=>{});
+    await zcMinimizeCameraZoom();
+    $('scanStatus').textContent='Camera klaar. Houd de hele kaart binnen het groene kader; herkennen start automatisch.';
+    autoScanActive=true;scheduleAutoScan(1600);
+  }catch(e){
+    $('scanStatus').textContent='Camera kon niet worden geopend. Gebruik “Foto maken” of “Uit galerij kiezen”.';
+  }
+}
 function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('camera').srcObject=null}
 function closeScanner(){stopCamera();$('scanModal').classList.remove('open')}
 $('scanBtn').onclick=openScanner;
 $('closeScanner').onclick=closeScanner;
 $('cameraPhotoBtn').onclick=()=>$('cameraPhotoInput').click();
 $('galleryBtn').onclick=()=>$('galleryInput').click();
-$('retryBtn').onclick=()=>{ocrBusy=false;$('capturedPreview').classList.add('hidden');$('camera').classList.remove('hidden');$('retryBtn').classList.add('hidden');$('scanStatus').textContent='Probeer opnieuw met de kaart recht en goed belicht.';$('scanProgress').style.width='0'};
-$('captureBtn').onclick=()=>{const v=$('camera');if(!v.videoWidth){showToast('Camera is nog niet klaar.');return}const c=$('captureCanvas'),max=1400,scale=Math.min(1,max/v.videoWidth);c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);c.getContext('2d').drawImage(v,0,0,c.width,c.height);const data=c.toDataURL('image/jpeg',.9);scanImage(data)};
+$('retryBtn').onclick=async()=>{ocrBusy=false;$('capturedPreview').classList.add('hidden');$('camera').classList.remove('hidden');$('retryBtn').classList.add('hidden');$('scanProgress').style.width='0';stopCamera();await openScanner()};
+$('captureBtn').onclick=()=>{const data=zcCaptureCurrentFrame();if(!data){showToast('Camera is nog niet klaar.');return}scanImage(data,false)};
 function zcHandleScannerFile(e){
   const f=e.target.files?.[0];
   if(!f)return;
@@ -1080,16 +1221,77 @@ $('cameraPhotoInput').onchange=zcHandleScannerFile;
 $('galleryInput').onchange=zcHandleScannerFile;
 function parseOCR(text){const raw=String(text||'').replace(/\r/g,'\n'),lines=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean);let number='';const whole=lines.join(' ');let m=whole.match(/\b((?:TG|GG|SV)\s*\d{1,3})\s*\/\s*((?:TG|GG|SV)?\s*\d{1,3})\b/i);if(m)number=m[1].replace(/\s/g,'').toUpperCase();if(!number){m=whole.match(/\b(TG|GG|SV)\s*0?(\d{1,3})\b/i);if(m)number=(m[1]+m[2]).toUpperCase()}if(!number){m=whole.match(/\b0?(\d{1,3})\s*\/\s*0?(\d{1,3})\b/);if(m)number=m[1]}
 const bad=/^(basic|stage|trainer|supporter|item|energy|ability|weakness|resistance|retreat|illustrator|pokemon|pokémon|hp\s*\d+)/i;let name='';for(let line of lines.slice(0,9)){line=line.replace(/\b\d{2,3}\s*HP\b/ig,'').replace(/\bHP\s*\d{2,3}\b/ig,'').replace(/[^A-Za-zÀ-ÿ' .\-]/g,' ').replace(/\s+/g,' ').trim();if(line.length>=3&&line.length<=34&&/[A-Za-zÀ-ÿ]{3}/.test(line)&&!bad.test(line)){name=line;break}}return{name,number,raw}}
-async function scanImage(data){if(ocrBusy)return;ocrBusy=true;stopCamera();$('camera').classList.add('hidden');$('capturedPreview').src=data;$('capturedPreview').classList.remove('hidden');$('retryBtn').classList.remove('hidden');$('scanStatus').textContent='Kaart wordt gelezen… dit kan enkele seconden duren.';try{const result=await Tesseract.recognize(data,'eng',{logger:m=>{if(m.status==='recognizing text'){$('scanProgress').style.width=Math.round((m.progress||0)*100)+'%';$('scanStatus').textContent='Kaart lezen… '+Math.round((m.progress||0)*100)+'%'}}});const p=parseOCR(result.data?.text||'');$('q').value=p.name||'';$('number').value=p.number||'';$('scanProgress').style.width='100%';if(p.name||p.number){$('scanStatus').textContent=`Herkenning: ${p.name||'naam niet zeker'} ${p.number?'#'+p.number:''}. Kaart wordt opgezocht…`;setTimeout(async()=>{
-  closeScanner();
-  await searchCards();
-  if(selectedCard){
-    showToast('Kaart gevonden. Je kunt hem nu toevoegen aan jouw kaartenlijst.');
-  }else{
-    showToast('Scangegevens ingevuld, maar er is nog geen kaart geselecteerd.');
+async function scanImage(data,isAuto=false){
+  if(ocrBusy)return;
+  ocrBusy=true;
+  if(!isAuto){
+    stopAutoScan();stopCamera();
+    $('camera').classList.add('hidden');
+    $('capturedPreview').src=data;$('capturedPreview').classList.remove('hidden');
+    $('retryBtn').classList.remove('hidden');
   }
-},350)}else{$('scanStatus').textContent='Naam/nummer niet duidelijk genoeg. Maak opnieuw een foto dichterbij en zonder reflectie.'}}catch(err){$('scanStatus').textContent='Scannen is niet gelukt. Probeer opnieuw of zoek de kaart handmatig.'}finally{ocrBusy=false}}
+  $('scanStatus').textContent=isAuto?'Kaart automatisch herkennen…':'Kaart wordt gelezen… dit kan enkele seconden duren.';
+  try{
+    const result=await Tesseract.recognize(data,'eng',{logger:m=>{
+      if(m.status==='recognizing text'){
+        $('scanProgress').style.width=Math.round((m.progress||0)*100)+'%';
+        $('scanStatus').textContent=(isAuto?'Automatisch herkennen… ':'Kaart lezen… ')+Math.round((m.progress||0)*100)+'%';
+      }
+    }});
+    const p=parseOCR(result.data?.text||'');
+    const confident=!!(p.name&&p.number) || (!!p.number&&String(p.number).length>=2);
+
+    if(confident){
+      stopAutoScan();
+      $('q').value=p.name||'';$('number').value=p.number||'';
+      $('scanProgress').style.width='100%';
+      $('scanStatus').textContent=`Herkenning: ${p.name||'naam niet zeker'} ${p.number?'#'+p.number:''}. Kaart wordt automatisch opgezocht…`;
+      ocrBusy=false;stopCamera();
+      setTimeout(async()=>{
+        closeScanner();await searchCards();
+        if(selectedCard)showToast('Kaart automatisch herkend en gevonden.');
+        else showToast('Kaartgegevens herkend, maar nog geen exacte kaart gevonden.');
+      },250);
+      return;
+    }
+
+    $('scanProgress').style.width='0';
+    if(isAuto){
+      $('scanStatus').textContent='Nog niet zeker. Houd de kaart stil en volledig in beeld…';
+      ocrBusy=false;
+      if(autoScanAttempts<8)scheduleAutoScan(1500);
+      else $('scanStatus').textContent='Automatische herkenning is niet zeker. Gebruik “Scan nu” of maak/kies een foto.';
+      return;
+    }
+    $('scanStatus').textContent='Naam/nummer niet duidelijk herkend. Probeer opnieuw of kies een scherpere foto.';
+  }catch(e){
+    if(isAuto){
+      $('scanStatus').textContent='Automatische herkenning probeert opnieuw…';
+      ocrBusy=false;
+      if(autoScanAttempts<8)scheduleAutoScan(1800);
+      return;
+    }
+    $('scanStatus').textContent='Herkennen mislukt. Probeer opnieuw.';
+  }
+  ocrBusy=false;
+}
 window.addEventListener('beforeunload',stopCamera);
+
+const zcSetInput=$('set'),zcSetBox=$('setDropdown');
+zcSetInput.addEventListener('focus',zcOpenSetDropdown);
+zcSetInput.addEventListener('click',zcOpenSetDropdown);
+zcSetInput.addEventListener('input',zcRenderSetDropdown);
+zcSetBox.addEventListener('mousedown',e=>{
+  const opt=e.target.closest('.set-option');if(!opt)return;
+  e.preventDefault();zcSetInput.value=opt.dataset.value||'';zcSetInput.dataset.setName=opt.dataset.name||'';zcCloseSetDropdown();
+});
+document.addEventListener('mousedown',e=>{if(!e.target.closest('.set-combobox'))zcCloseSetDropdown()});
+$('language').addEventListener('change',async()=>{
+  zcSetInput.value='';zcSetInput.dataset.setName='';
+  await zcLoadGlobalCatalog(false).catch(()=>{});
+  if(document.activeElement===zcSetInput)zcRenderSetDropdown();
+});
+
 // v8: warm the worldwide set catalog in the background.
 // Cache lasts 12 hours; after that it refreshes automatically.
 zcLoadGlobalCatalog(false).catch(()=>{});
