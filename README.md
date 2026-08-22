@@ -1,11 +1,30 @@
-# ZamexCards Price Checker v9.5
+# ZamexCards Price Checker v9.6
 
-Belangrijkste fixes:
-- Set / setcode dropdown volledig hersteld.
-- Resultatenbalk hersteld.
-- Jouw kaartenlijst-container hersteld.
-- Scanner progress-element hersteld. Dit ontbrekende element veroorzaakte een JavaScript-fout voordat de camera überhaupt werd aangevraagd.
-- Camera-start vereenvoudigd voor Android/Samsung: eerst camera, pas daarna OCR.
-- Rear camera wordt eerst geprobeerd; video:true is de fallback.
+Scanner gebruikt nu drie onafhankelijke herkenningssignalen:
 
-De dropdown behoudt de taalafhankelijke sets, officiële setcodes en release-sortering uit eerdere versies.
+1. Kaartnaam bovenaan.
+2. Volledig kaartnummer + totaal, bijvoorbeeld 053/084.
+3. Setcode, wanneer die leesbaar op de kaart staat.
+
+Een kaart wordt alleen automatisch gekozen wanneer minimaal 2 van de 3 signalen overeenkomen.
+
+Voor oudere kaarten met alleen een grafisch setsymbool:
+- het symbool hoeft niet letterlijk door OCR gelezen te worden;
+- naam + kaartnummer + totaal aantal kaarten worden gebruikt om de set uit de kaartdatabase af te leiden.
+
+Ruwe OCR-onzin wordt niet meer rechtstreeks in de Price Checker gezet.
+De velden worden pas ingevuld na een bevestigde database-match.
+
+Uitvoering:
+- databasevarianten worden eerst gecontroleerd;
+- Basic/Normaal, Holo en Reverse Holo worden conservatief visueel geschat;
+- Poké Ball / Master Ball / stamps worden alleen automatisch gekozen als de database geen twijfel laat;
+- bij twijfel blijft Uitvoering op Automatisch.
+
+Camera:
+- + en - zoomknoppen;
+- echte hardwarezoom indien ondersteund;
+- continuous autofocus indien ondersteund;
+- normale telefoon-autofocus is fallback.
+
+Upload alleen index.html naar GitHub Pages.
