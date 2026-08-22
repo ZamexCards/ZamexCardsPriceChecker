@@ -1,16 +1,30 @@
-# ZamexCards Price Checker v10.1 – kaartuitsnede scanner
+# ZamexCards Price Checker v11.0 – multi-signal scanner
 
-Probleem uit v10.0:
-OCR las boven- en onderzones relatief aan het volledige camerabeeld.
-Als de kaart niet exact schermvullend stond, kon de naam of collector number buiten de OCR-zone vallen.
+Deze versie is bedoeld als afronding van de scannerflow.
 
-v10.1:
-- berekent eerst een centrale Pokémonkaart-uitsnede met de juiste kaartverhouding;
-- OCR-zones voor naam en nummer zijn relatief aan die kaartuitsnede;
-- iets extra marge houdt rekening met lichte scheefstand;
-- collector-number zone wordt groter opgeschaald;
-- bij gemist kaartnummer volgt één extra sparse-text OCR-pass;
-- minder agressieve beeldbewerking voor holo/reverse kaarten.
+Kaartidentiteit:
+- OCR leest kaartnaam bovenaan;
+- OCR leest kaartnummer + totaal onderaan;
+- OCR leest setcode als die zichtbaar is;
+- kaartdatabase vergelijkt alle signalen;
+- minimaal twee sterke signalen zijn genoeg;
+- unieke naam + exact kaartnummer is voldoende;
+- exact nummer + totaal is voldoende;
+- exact setcode + nummer is voldoende;
+- geen zekere match -> shortlist, nooit willekeurig eerste resultaat.
 
-Het doel is dat een duidelijke scan zoals Vullaby 049/084 niet meer wordt afgekeurd alleen omdat
-de kaart niet exact van rand tot rand in het camerabeeld staat.
+Oud / nieuw / special:
+- werkt op basis van dezelfde naam/nummer/set matching;
+- oudere kaarten met setsymbool hoeven het symbool niet letterlijk door OCR te laten lezen;
+- nummer+totaal en naam kunnen de set in de database afleiden;
+- nieuwe/promokaarten worden gevonden zodra de databron ze kent.
+
+Uitvoering:
+- databasevarianten worden gecontroleerd;
+- Basic/Normaal, Holo en Reverse Holo worden conservatief visueel geschat;
+- Poké Ball, Master Ball en stamps worden alleen automatisch gekozen bij voldoende databasezekerheid;
+- bij twijfel blijft uitvoering op Automatisch.
+
+Belangrijk:
+een browser-only OCR scanner kan technisch niet 100% foutloos zijn bij elke hoek/lichtsituatie,
+maar deze versie blokkeert niet meer op één OCR-fout en kiest ook niet meer zomaar een verkeerde kaart.

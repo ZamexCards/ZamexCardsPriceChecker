@@ -24,7 +24,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v10.1 centered card crop OCR -->
+<!-- ZamexCards Price Checker v11.0 final multi-signal scanner -->
 </head>
 <body>
 <div class="app">
@@ -1413,12 +1413,12 @@ function zcScannerCrop(source,part){
     sx=bounds.x+bounds.w*.02;
     sy=bounds.y;
     sw=bounds.w*.96;
-    sh=bounds.h*.24;
+    sh=bounds.h*.31;
   }else if(part==='bottom'){
     sx=bounds.x+bounds.w*.015;
-    sy=bounds.y+bounds.h*.73;
+    sy=bounds.y+bounds.h*.69;
     sw=bounds.w*.97;
-    sh=bounds.h*.27;
+    sh=bounds.h*.31;
   }
 
   const targetW=part==='top'?1150:1250;
@@ -1524,8 +1524,14 @@ async function zcSmartRecognizeSource(source,isAuto=false){
   $('scanStatus').textContent='Naam lezen…';
   if($('scanProgress'))$('scanProgress').style.width='20%';
 
-  const topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'7','name');
-  const name=zcParseTopText(topText);
+  let topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'7','name');
+  let name=zcParseTopText(topText);
+
+  // Alternate sparse-text name pass if needed.
+  if(!name){
+    topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'11','name');
+    name=zcParseTopText(topText);
+  }
 
   $('scanStatus').textContent='Kaartnummer en set lezen…';
   if($('scanProgress'))$('scanProgress').style.width='55%';
@@ -1533,7 +1539,7 @@ async function zcSmartRecognizeSource(source,isAuto=false){
   let bottomText=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6','number');
   let bottom=zcParseBottomText(bottomText);
 
-  // If collector number was missed, try one alternate sparse-text pass.
+  // Alternate sparse-text number pass if needed.
   if(!bottom.number){
     bottomText=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'11','number');
     bottom=zcParseBottomText(bottomText);
@@ -1820,56 +1826,252 @@ async function zcFetchFullCandidateSetInfo(card){
   return card;
 }
 
+
+function zcLevenshtein(a='',b=''){
+  a=zcNormText(a); b=zcNormText(b);
+  const m=a.length,n=b.length;
+  if(!m)return n;if(!n)return m;
+  const dp=Array.from({length:m+1},()=>Array(n+1).fill(0));
+  for(let i=0;i<=m;i++)dp[i][0]=i;
+  for(let j=0;j<=n;j++)dp[0][j]=j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+cost);
+    }
+  }
+  return dp[m][n];
+}
+
+function zcNameScore(a='',b=''){
+  const A=zcNormText(a),B=zcNormText(b);
+  if(!A||!B)return 0;
+  if(A===B)return 1;
+  if(A.includes(B)||B.includes(A))return .88;
+  const dist=zcLevenshtein(A,B);
+  return Math.max(0,1-dist/Math.max(A.length,B.length));
+}
+
+function zcSetCodeCandidates(card){
+  return [card?.setCode,card?.ptcgoCode,card?.setId,card?.pokemonSetId]
+    .filter(Boolean)
+    .map(x=>String(x).toUpperCase());
+}
+
+function zcCardPrintedTotal(card){
+  const vals=[
+    card?.printedTotal, card?.setTotal, card?.officialTotal,
+    card?.set?.cardCount?.official, card?.set?.cardCount?.total,
+    card?.set?.printedTotal, card?.set?.total
+  ];
+  for(const v of vals){
+    const m=String(v||'').match(/\d{1,4}/);
+    if(m)return m[0];
+  }
+  return '';
+}
+
+function zcIdentityScore(rec,card){
+  let score=0;
+  let signals=0;
+  const reasons=[];
+
+  // Name signal
+  if(rec.name){
+    const ns=zcNameScore(rec.name,card.name||'');
+    if(ns>=.88){score+=55;signals++;reasons.push('naam')}
+    else if(ns>=.72){score+=38;signals++;reasons.push('naam')}
+    else if(ns>=.55){score+=18}
+    else score-=25;
+  }
+
+  // Number signal
+  const rn=zcNormCardNumber(rec.number||'');
+  const cn=zcNormCardNumber(card.number||'');
+  if(rn&&cn){
+    if(rn===cn){score+=35;signals++;reasons.push('nummer')}
+    else score-=45;
+  }
+
+  // Total signal
+  const rt=zcNormCardNumber(rec.total||rec.printedTotal||'');
+  const ct=zcNormCardNumber(zcCardPrintedTotal(card));
+  if(rt){
+    if(ct&&rt===ct){score+=40;signals++;reasons.push('totaal')}
+    else if(ct)score-=40;
+  }
+
+  // Set code signal
+  if(rec.setCode){
+    const rs=String(rec.setCode).toUpperCase();
+    if(zcSetCodeCandidates(card).includes(rs)){score+=50;signals++;reasons.push('setcode')}
+    else score-=25;
+  }
+
+  return {score,signals,reasons};
+}
+
+async function zcBuildScanCandidates(rec){
+  let cards=[];
+
+  // Route 1: exact set code if present.
+  if(rec.setCode){
+    const resolved=await zcResolveSetFromCatalog(rec.setCode);
+    if(resolved?.tcgdexId){
+      cards=await zcGlobalCardSearch({
+        name:rec.name||'',
+        setQuery:rec.setCode,
+        setCode:String(rec.setCode).toUpperCase(),
+        setId:resolved.tcgdexId,
+        number:rec.number||'',
+        preferredLang:resolved.lang||null,
+        pokemonSetId:resolved.pokemonId||''
+      },'');
+    }
+  }
+
+  // Route 2: name + number
+  if(!cards.length && rec.name && rec.number){
+    cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',rec.number),'');
+  }
+
+  // Route 3: number only
+  if(!cards.length && rec.number){
+    cards=await zcGlobalCardSearch(zcParseSearch('','',rec.number),'');
+  }
+
+  // Route 4: name only
+  if(!cards.length && rec.name){
+    cards=await zcGlobalCardSearch(zcParseSearch(rec.name,'',''),'');
+  }
+
+  // If total is known, prefer candidate sets with same printed total.
+  if(rec.total && cards.length){
+    const target=zcNormCardNumber(rec.total);
+    const matching=cards.filter(c=>zcNormCardNumber(zcCardPrintedTotal(c))===target);
+    if(matching.length)cards=matching;
+  }
+
+  return cards;
+}
+
+function zcUniqueTopMatch(rec,cards){
+  if(!cards.length)return {match:null,ranked:[]};
+  const ranked=cards.map(c=>({c,...zcIdentityScore(rec,c)}))
+    .sort((a,b)=>b.score-a.score);
+
+  const top=ranked[0],second=ranked[1];
+
+  // Core rule: 2 strong signals are enough.
+  if(top && top.signals>=2 && top.score>=70){
+    const gap=second?top.score-second.score:999;
+    if(gap>=12)return {match:top.c,ranked};
+  }
+
+  // Name + exact number unique route.
+  const exactNameNumber=ranked.filter(x=>
+    zcNormCardNumber(x.c.number||'')===zcNormCardNumber(rec.number||'') &&
+    zcNameScore(rec.name||'',x.c.name||'')>=.82
+  );
+  if(exactNameNumber.length===1)return {match:exactNameNumber[0].c,ranked};
+
+  // Exact number + exact total unique route.
+  if(rec.number && rec.total){
+    const exactCollector=ranked.filter(x=>
+      zcNormCardNumber(x.c.number||'')===zcNormCardNumber(rec.number) &&
+      zcNormCardNumber(zcCardPrintedTotal(x.c))===zcNormCardNumber(rec.total)
+    );
+    if(exactCollector.length===1)return {match:exactCollector[0].c,ranked};
+  }
+
+  // Set code + number unique route.
+  if(rec.setCode && rec.number){
+    const rs=String(rec.setCode).toUpperCase();
+    const exactSetNum=ranked.filter(x=>
+      zcNormCardNumber(x.c.number||'')===zcNormCardNumber(rec.number) &&
+      zcSetCodeCandidates(x.c).includes(rs)
+    );
+    if(exactSetNum.length===1)return {match:exactSetNum[0].c,ranked};
+  }
+
+  return {match:null,ranked};
+}
+
+function zcPossibleVariants(card){
+  return [...new Set((card?.variantsDetailed||[]).map(zcFinishLabel).filter(Boolean))];
+}
+
+function zcVisualVariantGuess(source){
+  try{
+    const w=source.videoWidth||source.naturalWidth||source.width;
+    const h=source.videoHeight||source.naturalHeight||source.height;
+    if(!w||!h)return {label:'Automatisch',confidence:0};
+
+    const c=document.createElement('canvas');
+    c.width=360;c.height=Math.round(360*h/w);
+    const ctx=c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(source,0,0,c.width,c.height);
+
+    const stats=(x,y,rw,rh)=>{
+      const d=ctx.getImageData(Math.round(c.width*x),Math.round(c.height*y),Math.round(c.width*rw),Math.round(c.height*rh)).data;
+      let n=0,sum=0,sum2=0,bright=0,color=0;
+      for(let i=0;i<d.length;i+=24){
+        const r=d[i],g=d[i+1],b=d[i+2],v=(r+g+b)/3;
+        n++;sum+=v;sum2+=v*v;if(v>220)bright++;
+        color+=Math.max(r,g,b)-Math.min(r,g,b);
+      }
+      const mean=sum/n,std=Math.sqrt(Math.max(0,sum2/n-mean*mean));
+      return {std,bright:bright/n,color:color/n};
+    };
+
+    const art=stats(.10,.12,.80,.38);
+    const lower=stats(.08,.55,.84,.32);
+
+    // Conservative visual guesses only.
+    const reverseScore=(lower.std-art.std)+(lower.bright-art.bright)*150+(lower.color-art.color)*.15;
+    const holoScore=art.std+art.bright*120;
+
+    if(reverseScore>30)return {label:'Reverse Holo',confidence:.72};
+    if(holoScore>70)return {label:'Holo',confidence:.69};
+    if(art.bright<.07&&lower.bright<.07)return {label:'Basic / Normaal',confidence:.63};
+  }catch(e){}
+  return {label:'Automatisch',confidence:0};
+}
+
+function zcChooseScannedVariant(card,source){
+  const possible=zcPossibleVariants(card);
+
+  if(possible.length===1)return possible[0];
+
+  const visual=zcVisualVariantGuess(source);
+  if(visual.confidence>=.68 && possible.includes(visual.label))return visual.label;
+
+  // Special variants are only auto-selected if database says only one such option exists.
+  const specials=[
+    'Poké Ball','Great Ball','Master Ball','Cracked Ice Holo',
+    'Cosmos Holo','Galaxy Holo','Pokémon Together stamp',
+    'Snowflake stamp','Play! Pokémon stamp'
+  ];
+  const specialPossible=possible.filter(x=>specials.includes(x));
+  if(specialPossible.length===1 && possible.length===1)return specialPossible[0];
+
+  return 'Automatisch';
+}
+
 async function zcFindScannedCard(recognized){
   if(!recognized?.name && !recognized?.number)return [];
 
-  let candidates=await zcInferScannedCandidates(recognized);
-  if(!candidates.length)return [];
+  const cards=await zcBuildScanCandidates(recognized);
+  if(!cards.length)return [];
 
-  // Enrich a small candidate set so printed set totals are available when possible.
-  if(recognized.total && candidates.length<=12){
-    candidates=await Promise.all(candidates.map(zcFetchFullCandidateSetInfo));
-  }
+  const result=zcUniqueTopMatch(recognized,cards);
+  if(result.match)return [result.match];
 
-  // Strong route A: exact name + exact card number.
-  // If this combination is unique, it is safe even if set-total metadata is missing.
-  if(recognized.name && recognized.number){
-    const exactNameNumber=candidates.filter(c=>zcExactNameNumber(recognized,c));
-    if(exactNameNumber.length===1)return exactNameNumber;
-  }
-
-  // Strong route B: exact collector number numerator + denominator.
-  if(recognized.number && recognized.total){
-    const exactCollector=candidates.filter(c=>zcExactNumberTotal(recognized,c));
-    if(exactCollector.length===1)return exactCollector;
-  }
-
-  // Strong route C: exact setcode + number.
-  if(recognized.setCode && recognized.number){
-    const exactSetNumber=candidates.filter(c=>zcExactSetCodeNumber(recognized,c));
-    if(exactSetNumber.length===1)return exactSetNumber;
-  }
-
-  // Score all candidates. Two independent strong signals still wins.
-  const ranked=candidates
-    .map(c=>({c,...zcScanIdentityScore(recognized,c)}))
-    .sort((a,b)=>b.score-a.score);
-
-  const best=ranked[0],second=ranked[1];
-  if(!best)return [];
-
-  const gap=second?best.score-second.score:999;
-  if(best.signals>=2 && best.score>=70 && gap>=12)return [best.c];
-
-  // If OCR name is very close and number is exact, allow a unique high-confidence match.
-  const close=ranked.filter(x=>
-    zcNormCardNumber(x.c.number||'')===zcNormCardNumber(recognized.number||'') &&
-    zcNameSimilarity(recognized.name||'',x.c.name||'')>=.78
-  );
-  if(close.length===1)return [close[0].c];
-
-  // Never silently choose the first same-number card.
-  return ranked.filter(x=>x.score>=Math.max(20,best.score-15)).slice(0,10).map(x=>x.c);
+  // No certain match: return a short ranked shortlist, but never auto-pick.
+  return result.ranked
+    .filter(x=>x.score>=Math.max(20,(result.ranked[0]?.score||0)-12))
+    .slice(0,8)
+    .map(x=>x.c);
 }
 
 async function zcApplyScannedCard(card,sourceImage=null){
@@ -1894,8 +2096,8 @@ async function zcApplyScannedCard(card,sourceImage=null){
   if(!setValue)setValue=card.setCode||card.setId||card.set||'';
   $('set').value=setValue;
 
-  const finish=sourceImage?zcResolveScannedFinish(card,sourceImage):'Automatisch';
-  if([...$('variant').options].some(o=>o.value===finish))$('variant').value=finish;
+  const variant=sourceImage?zcChooseScannedVariant(card,sourceImage):'Automatisch';
+  if([...$('variant').options].some(o=>o.value===variant))$('variant').value=variant;
   else $('variant').value='Automatisch';
 
   renderStrip();
