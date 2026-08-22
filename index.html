@@ -24,7 +24,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.7 robust sequential OCR + layered identity matching -->
+<!-- ZamexCards Price Checker v10.0 stable one-shot scanner -->
 </head>
 <body>
 <div class="app">
@@ -1333,26 +1333,20 @@ function zcCaptureCurrentFrame(){
   c.getContext('2d').drawImage(v,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.88);
 }
-function scheduleAutoScan(delay=500){
+function scheduleAutoScan(delay=1200){
   if(!autoScanActive)return;
   if(autoScanTimer)clearTimeout(autoScanTimer);
-  autoScanTimer=setTimeout(autoCaptureAndRecognize,delay);
+  autoScanTimer=setTimeout(zcOneShotAutoScan,delay);
 }
-async function autoCaptureAndRecognize(){
-  if(!autoScanActive||ocrBusy||zcBurstRunning||!$('scanModal').classList.contains('open')){
-    scheduleAutoScan(700);
+async function zcOneShotAutoScan(){
+  if(!autoScanActive || ocrBusy || !$('scanModal').classList.contains('open'))return;
+  const data=zcCaptureCurrentFrame();
+  if(!data){
+    $('scanStatus').textContent='Camera nog niet scherp. Gebruik Scan nu.';
     return;
   }
-  const data=zcCaptureCurrentFrame();
-  if(!data){scheduleAutoScan(450);return}
-
-  autoScanAttempts++;
-  zcBurstRunning=true;
-  try{
-    await scanImage(data,true);
-  }finally{
-    zcBurstRunning=false;
-  }
+  autoScanActive=false;
+  await scanImage(data,true);
 }
 
 let zcOcrWorker=null;
@@ -1386,28 +1380,26 @@ function zcScannerCrop(source,part){
   const w=source.videoWidth||source.naturalWidth||source.width;
   const h=source.videoHeight||source.naturalHeight||source.height;
   const c=document.createElement('canvas');
+  let sx=0,sy=0,sw=w,sh=h;
 
-  let sy=0,sh=h;
-  if(part==='top'){sy=0;sh=h*.38}
-  else if(part==='bottom'){sy=h*.60;sh=h*.40}
+  if(part==='top'){sx=w*.03;sy=h*.01;sw=w*.94;sh=h*.34}
+  else if(part==='bottom'){sx=w*.02;sy=h*.63;sw=w*.96;sh=h*.35}
 
-  // Smaller working width = much faster OCR on mobile.
-  const targetW=part==='full'?900:1050;
-  const scale=Math.min(1.35,targetW/w);
-  c.width=Math.max(700,Math.round(w*scale));
+  const targetW=part==='top'?900:1050;
+  const scale=Math.min(1.45,targetW/sw);
+  c.width=Math.max(720,Math.round(sw*scale));
   c.height=Math.max(180,Math.round(sh*scale));
 
-  const x=c.getContext('2d',{willReadFrequently:true});
-  x.drawImage(source,0,sy,w,sh,0,0,c.width,c.height);
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(source,sx,sy,sw,sh,0,0,c.width,c.height);
 
-  // Light grayscale/contrast only.
-  const im=x.getImageData(0,0,c.width,c.height),d=im.data;
+  const im=ctx.getImageData(0,0,c.width,c.height),d=im.data;
   for(let i=0;i<d.length;i+=4){
     const g=.299*d[i]+.587*d[i+1]+.114*d[i+2];
-    const v=Math.max(0,Math.min(255,(g-128)*1.15+128));
+    const v=Math.max(0,Math.min(255,(g-128)*1.10+128));
     d[i]=d[i+1]=d[i+2]=v;
   }
-  x.putImageData(im,0,0);
+  ctx.putImageData(im,0,0);
   return c;
 }
 
@@ -1484,23 +1476,25 @@ async function zcRecognizeCanvas(canvas,psm='6',mode='general'){
 }
 
 async function zcSmartRecognizeSource(source,isAuto=false){
-  // IMPORTANT: one Tesseract worker must not receive two recognize jobs at once.
-  // Do the small top and bottom regions sequentially for stability on mobile.
-  $('scanStatus').textContent='Kaartnaam lezen…';
-  const topCanvas=zcScannerCrop(source,'top');
-  const topText=await zcRecognizeCanvas(topCanvas,'6','name');
+  $('scanStatus').textContent='Naam lezen…';
+  if($('scanProgress'))$('scanProgress').style.width='20%';
+
+  const topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'7','name');
   const name=zcParseTopText(topText);
 
-  $('scanStatus').textContent='Kaartnummer lezen…';
-  const bottomCanvas=zcScannerCrop(source,'bottom');
-  const bottomText=await zcRecognizeCanvas(bottomCanvas,'6','number');
+  $('scanStatus').textContent='Kaartnummer en set lezen…';
+  if($('scanProgress'))$('scanProgress').style.width='55%';
+
+  const bottomText=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6','number');
   const bottom=zcParseBottomText(bottomText);
+
+  if($('scanProgress'))$('scanProgress').style.width='75%';
 
   return {
     name:String(name||'').trim(),
     number:String(bottom.number||'').trim(),
-    total:String(bottom.total||'').trim(),
-    printedTotal:String(bottom.total||'').trim(),
+    total:String(bottom.total||bottom.printedTotal||'').trim(),
+    printedTotal:String(bottom.total||bottom.printedTotal||'').trim(),
     printedNumber:String(bottom.printedNumber||bottom.number||'').trim(),
     setCode:String(bottom.setCode||'').trim()
   };
@@ -1951,50 +1945,51 @@ async function openScanner(){
   autoScanAttempts=0;
   zcScanVotes=[];
   zcBurstRunning=false;
+  ocrBusy=false;
 
   try{
-    // Release an older stream first, but do not touch OCR or other heavy work yet.
-    if(stream){try{stream.getTracks().forEach(t=>t.stop())}catch(e){} stream=null;}
+    if(stream){
+      try{stream.getTracks().forEach(t=>t.stop())}catch(e){}
+      stream=null;
+    }
 
-    let media=null;
     try{
-      media=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:'environment'}},
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
         audio:false
       });
     }catch(e){
-      // Very broad Android fallback.
-      media=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
     }
 
-    stream=media;
     const video=$('camera');
     video.srcObject=stream;
     video.muted=true;
     video.setAttribute('playsinline','');
     video.setAttribute('autoplay','');
-
     try{await video.play()}catch(e){}
-    const ready=await zcWaitForVideo(video,3200);
 
-    if(!ready || !video.videoWidth){
-      throw new Error('Geen camerabeeld ontvangen');
-    }
+    await new Promise(resolve=>{
+      if(video.videoWidth>0){resolve();return}
+      const done=()=>resolve();
+      video.addEventListener('loadedmetadata',done,{once:true});
+      setTimeout(done,1800);
+    });
 
-    // Only after live image is visible, attempt zoom and OCR warm-up.
-    await zcMinimizeCameraZoom().catch(()=>{});
     await zcConfigureCameraControls().catch(()=>{});
-    $('scanStatus').textContent='Camera klaar.';
-    autoScanActive=true;
 
-    setTimeout(()=>{zcGetOcrWorker().catch(()=>{})},400);
-    scheduleAutoScan(1200);
+    $('scanStatus').textContent='Camera klaar. Automatische scan start…';
+
+    // Warm OCR only after camera is visible.
+    zcGetOcrWorker().catch(()=>{});
+
+    autoScanActive=true;
+    scheduleAutoScan(1300);
+
   }catch(e){
-    console.error('Camera start error:',e);
-    if(stream){try{stream.getTracks().forEach(t=>t.stop())}catch(_e){} stream=null;}
-    const video=$('camera');
-    if(video)video.srcObject=null;
-    $('scanStatus').textContent='Camera kon niet worden geopend. Controleer cameratoestemming of gebruik Foto maken / Uit galerij kiezen.';
+    console.error('Camera:',e);
+    stopCamera();
+    $('scanStatus').textContent='Camera kon niet worden geopend. Gebruik Foto maken of Uit galerij kiezen.';
   }
 }
 
@@ -2017,7 +2012,7 @@ $('scanBtn').onclick=openScanner;
 $('closeScanner').onclick=closeScanner;
 $('cameraPhotoBtn').onclick=()=>$('cameraPhotoInput').click();
 $('galleryBtn').onclick=()=>$('galleryInput').click();
-$('retryBtn').onclick=async()=>{ocrBusy=false;$('capturedPreview').classList.add('hidden');$('camera').classList.remove('hidden');$('retryBtn').classList.add('hidden');$('scanProgress').style.width='0';stopCamera();await openScanner()};
+$('retryBtn').onclick=async()=>{ocrBusy=false;stopCamera();await openScanner()};
 $('captureBtn').onclick=()=>{const data=zcCaptureCurrentFrame();if(!data){showToast('Camera is nog niet klaar.');return}scanImage(data,false)};
 function zcHandleScannerFile(e){
   const f=e.target.files?.[0];
@@ -2035,17 +2030,9 @@ const bad=/^(basic|stage|trainer|supporter|item|energy|ability|weakness|resistan
 async function scanImage(data,isAuto=false){
   if(ocrBusy)return;
   ocrBusy=true;
+  stopAutoScan();
 
-  if(!isAuto){
-    stopAutoScan();
-    stopCamera();
-    $('camera').classList.add('hidden');
-    $('capturedPreview').src=data;
-    $('capturedPreview').classList.remove('hidden');
-    $('retryBtn').classList.remove('hidden');
-  }
-
-  $('scanProgress').style.width='5%';
+  if($('scanProgress'))$('scanProgress').style.width='5%';
 
   try{
     const img=new Image();
@@ -2054,59 +2041,66 @@ async function scanImage(data,isAuto=false){
       img.onerror=reject;
       img.src=data;
     });
-
     zcLastScanSource=img;
-    const p=await zcSmartRecognizeSource(img,isAuto);
 
-    if(p?.number){
-      // Full collector number (e.g. 051/084 or 130/094) is strong enough
-      // to attempt an immediate exact database match.
-      if(p.printedTotal){
-        $('scanStatus').textContent=`Kaart ${p.printedNumber||p.number} controleren…`;
-        const done=await zcFinishRecognizedScan(p);
-        if(done)return;
-      }
+    // Freeze the exact frame being analyzed.
+    stopCamera();
+    $('camera').classList.add('hidden');
+    $('capturedPreview').src=data;
+    $('capturedPreview').classList.remove('hidden');
+    $('retryBtn').classList.remove('hidden');
 
-      const vote=zcRegisterScanVote(p);
-      const recognized=!isAuto?p:(vote||(autoScanAttempts>=2?p:null));
-      if(recognized){
-        $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.number?'#'+recognized.number:''}. Controleren…`;
-        const done=await zcFinishRecognizedScan(recognized);
-        if(done)return;
-      }
-    }
+    const recognized=await zcSmartRecognizeSource(img,isAuto);
 
-    $('scanProgress').style.width='0';
-
-    if(isAuto){
-      $('scanStatus').textContent=
-        zcScanVotes.length
-          ? 'Kaart wordt bevestigd… kleine beweging is geen probleem.'
-          : 'Naam/nummer zoeken… houd de kaart ongeveer binnen het kader.';
+    if(!recognized.name && !recognized.number){
+      $('scanStatus').textContent='Naam en kaartnummer niet duidelijk genoeg. Gebruik Opnieuw.';
+      if($('scanProgress'))$('scanProgress').style.width='0';
       ocrBusy=false;
-
-      // Faster burst: several frames, then keep trying at a calmer pace.
-      if(autoScanAttempts<8)scheduleAutoScan(autoScanAttempts<4?500:800);
-      else $('scanStatus').textContent='Nog geen zekere match. Houd de kaart heel even stil of gebruik Scan nu.';
       return;
     }
 
-    $('scanStatus').textContent='Nog geen exacte kaartmatch. Probeer opnieuw of kies een scherpere foto.';
+    $('scanStatus').textContent='Kaart controleren…';
+    if($('scanProgress'))$('scanProgress').style.width='85%';
+
+    const matches=await zcFindScannedCard(recognized);
+
+    if(matches.length===1){
+      await zcApplyScannedCard(matches[0],img);
+      if($('scanProgress'))$('scanProgress').style.width='100%';
+      $('scanStatus').textContent='Kaart gevonden.';
+      ocrBusy=false;
+      setTimeout(()=>{closeScanner();showToast('Kaart herkend en in de Price Checker gezet.')},220);
+      return;
+    }
+
+    if(matches.length>1){
+      currentCards=matches;
+      selectedCard=null;
+      renderStrip();
+      if($('scanProgress'))$('scanProgress').style.width='100%';
+      $('scanStatus').textContent='Meerdere mogelijke kaarten gevonden.';
+      ocrBusy=false;
+      setTimeout(()=>{
+        closeScanner();
+        $('detailPanel').innerHTML='<div class="placeholder"><strong>Meerdere kaarten passen bij de scan.</strong><br>Kies hierboven de juiste kaart.</div>';
+        showToast('Meerdere mogelijke kaarten gevonden. Kies de juiste kaart.');
+      },220);
+      return;
+    }
+
+    // Never write unconfirmed OCR into the main search fields.
+    if($('scanProgress'))$('scanProgress').style.width='0';
+    $('scanStatus').textContent='Geen zekere match. Gebruik Opnieuw of kies een foto.';
+    ocrBusy=false;
+
   }catch(e){
-    console.error('Scanner OCR:',e);
-
-    if(isAuto){
-      $('scanStatus').textContent='Nieuwe scanpoging…';
-      ocrBusy=false;
-      if(autoScanAttempts<6)scheduleAutoScan(650);
-      return;
-    }
-
-    $('scanStatus').textContent='Herkennen mislukt. Probeer opnieuw.';
+    console.error('Scanner:',e);
+    if($('scanProgress'))$('scanProgress').style.width='0';
+    $('scanStatus').textContent='Scan kon niet worden verwerkt. Gebruik Opnieuw.';
+    ocrBusy=false;
   }
-
-  ocrBusy=false;
 }
+
 window.addEventListener('beforeunload',()=>{
   stopCamera();
   if(zcOcrWorker){try{zcOcrWorker.terminate()}catch(e){}}

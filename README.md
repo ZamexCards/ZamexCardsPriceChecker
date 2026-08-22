@@ -1,24 +1,20 @@
-# ZamexCards Price Checker v9.7
+# ZamexCards Price Checker v10.0 – stabiele scanflow
 
-Belangrijkste scannerfixes:
+Deze versie vereenvoudigt de scanner bewust.
 
-- OCR bovenkant en onderkant worden NIET meer tegelijk op dezelfde Tesseract-worker uitgevoerd.
-  Dit veroorzaakte mobiele herkenningsproblemen.
-- Naam + exact kaartnummer kan nu direct een veilige match zijn als die combinatie uniek is.
-- Nummer + totaal (bijv. 047/094) is een tweede sterke route.
-- Setcode + nummer is een derde sterke route.
-- Ontbreekt set-total metadata in een kort database-record, dan wordt voor maximaal 12 kandidaten
-  de volledige kaartdata opgehaald.
-- Candidate search probeert in volgorde:
-  1. setcode + naam + nummer
-  2. naam + nummer
-  3. nummer
-  4. naam
-- OCR-zones zijn iets ruimer gemaakt voor schuin gehouden kaarten.
-- Nooit automatisch de eerste kaart met hetzelfde losse nummer kiezen.
+Flow:
+1. Camera opent.
+2. Autofocus/exposure krijgt circa 1,3 seconde.
+3. Automatisch wordt precies één frame vastgezet.
+4. Alleen naam bovenaan wordt gelezen.
+5. Alleen kaartnummer/totaal/set onderaan wordt gelezen.
+6. De kaartdatabase bevestigt de identiteit.
+7. Alleen bevestigde databasegegevens worden in de Price Checker gezet.
 
-Dit betekent dat een kaart zoals Vullaby met duidelijke naam bovenaan en collector number onderaan
-ook gevonden kan worden wanneer de setcode niet goed door OCR wordt gelezen.
+Geen eindeloze OCR-loop meer.
+Geen ruwe OCR-onzin in de zoekvelden.
+Geen willekeurige eerste kaart op basis van alleen hetzelfde nummer.
 
-Een browser-only scanner kan niet letterlijk 100% van alle mogelijke kaarten onder alle lichtomstandigheden
-garanderen, maar deze versie gebruikt nu de betrouwbare combinaties in plaats van één fragiel OCR-resultaat.
+Handmatige Scan nu, Foto maken en Uit galerij kiezen gebruiken exact dezelfde herkenningsflow.
+Zoom +/- en autofocus blijven behouden.
+De set-dropdown en overige functies blijven behouden.
