@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.1 strict identity + conservative finish detection -->
+<!-- ZamexCards Price Checker v9.3 fast staged OCR scanner -->
 </head>
 <body>
 <div class="app">
@@ -44,7 +44,7 @@
   <div class="field set-combobox">
   <label>Set / setcode</label>
   <input id="set" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="setDropdown" placeholder="Typ setcode of kies een set…">
-  <div id="setDropdown" class="set-dropdown" role="listbox"></div>
+  
 </div>
   <div class="field"><label>Kaartnummer</label><input id="number" placeholder="bijv. 199 of TG14"></div>
 </div>
@@ -95,12 +95,12 @@
 
 <div class="workspace">
 <main class="main">
-  <div id="resultsStrip" class="results-strip"></div>
+  
   <section class="panel detail" id="detailPanel"><div class="placeholder"><strong>Zoek een kaart of scan hem met je mobiel.</strong><br>De gevonden kaart en prijsinformatie verschijnen hier.</div></section>
 </main>
 <aside class="panel list-panel" id="favoritesPanel">
   <div class="section-title"><h2>💚 Jouw kaartenlijst</h2><div class="count"><span id="uniqueCount">0</span> soorten / <span id="favCount">0</span> kaarten</div></div>
-  <div id="favorites"></div>
+  
   <div class="summary"><div class="sum-row"><span>Totaal (<span id="totalQty">0</span> kaarten)</span><strong id="grandTotal">€ 0,00</strong></div><div class="sum-row discount"><span>80% van totaal</span><strong id="eightyTotal">€ 0,00</strong></div></div>
   <div class="list-tools"><button class="btn danger sm" id="clearAll">🗑 Clear all</button></div>
 </aside>
@@ -109,8 +109,8 @@
 
 <div class="modal" id="scanModal"><div class="modal-box">
   <div class="section-title"><h2>📷 Pokémonkaart scannen</h2><button class="btn sm" id="closeScanner">✕</button></div>
-  <p>Houd de kaart ongeveer binnen het kader. Kleine beweging of lichte trilling is geen probleem: de scanner vergelijkt meerdere beelden en bevestigt automatisch dezelfde kaart.</p>
-  <div class="camera-frame"><video id="camera" playsinline autoplay muted></video><img id="capturedPreview" class="hidden" alt="Gescande kaart"><div class="scan-guide"></div></div>
+  
+  <div class="camera-frame"><video id="camera" playsinline autoplay muted></video><img id="capturedPreview" class="hidden" alt="Gescande kaart"></div>
   <canvas id="captureCanvas" class="hidden"></canvas>
   <input id="cameraPhotoInput" class="hidden" type="file" accept="image/*" capture="environment">
   <input id="galleryInput" class="hidden" type="file" accept="image/*">
@@ -120,11 +120,11 @@
     <button class="btn" id="galleryBtn">🖼 Uit galerij kiezen</button>
     <button class="btn ghost hidden" id="retryBtn">↻ Opnieuw</button>
   </div>
-  <div class="scan-status" id="scanStatus">Camera wordt gestart…</div><div class="progress"><div id="scanProgress"></div></div>
+  <div class="scan-status" id="scanStatus">Camera wordt gestart…</div><div class="progress"></div>
 </div></div>
 
-<div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><p id="alertCardName"></p><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
-<div class="toast" id="toast"></div>
+<div class="modal" id="alertModal"><div class="modal-box alert-form"><h2>Prijsalarm instellen</h2><input id="alertTarget" type="number" min="0" step="0.01" placeholder="Waarschuw onder prijs, bijv. 25.00"><div class="scanner-actions"><button class="btn primary" id="saveAlert">Opslaan</button><button class="btn" onclick="closeAlert()">Annuleren</button></div></div></div>
+
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const $=id=>document.getElementById(id); const euro=n=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(n)); const money=(n,c='EUR')=>(n===null||n===undefined||n===''||!Number.isFinite(Number(n)))?'Niet beschikbaar':new Intl.NumberFormat('nl-NL',{style:'currency',currency:c}).format(Number(n));
@@ -1284,7 +1284,7 @@ function zcCaptureCurrentFrame(){
   c.getContext('2d').drawImage(v,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.88);
 }
-function scheduleAutoScan(delay=650){
+function scheduleAutoScan(delay=500){
   if(!autoScanActive)return;
   if(autoScanTimer)clearTimeout(autoScanTimer);
   autoScanTimer=setTimeout(autoCaptureAndRecognize,delay);
@@ -1334,15 +1334,32 @@ async function zcGetOcrWorker(){
 }
 
 function zcScannerCrop(source,part){
-  const w=source.videoWidth||source.naturalWidth||source.width,h=source.videoHeight||source.naturalHeight||source.height;
-  const c=document.createElement('canvas'); let sy=0,sh=h;
-  if(part==='top')sh=h*.40; else if(part==='bottom'){sy=h*.58;sh=h*.42}
-  const tw=Math.min(1800,Math.max(1000,Math.round(w*1.25))),s=tw/w;
-  c.width=Math.round(w*s);c.height=Math.round(sh*s);
-  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(source,0,sy,w,sh,0,0,c.width,c.height);
+  const w=source.videoWidth||source.naturalWidth||source.width;
+  const h=source.videoHeight||source.naturalHeight||source.height;
+  const c=document.createElement('canvas');
+
+  let sy=0,sh=h;
+  if(part==='top'){sy=0;sh=h*.32}
+  else if(part==='bottom'){sy=h*.68;sh=h*.32}
+
+  // Smaller working width = much faster OCR on mobile.
+  const targetW=part==='full'?900:1050;
+  const scale=Math.min(1.35,targetW/w);
+  c.width=Math.max(700,Math.round(w*scale));
+  c.height=Math.max(180,Math.round(sh*scale));
+
+  const x=c.getContext('2d',{willReadFrequently:true});
+  x.drawImage(source,0,sy,w,sh,0,0,c.width,c.height);
+
+  // Light grayscale/contrast only.
   const im=x.getImageData(0,0,c.width,c.height),d=im.data;
-  for(let i=0;i<d.length;i+=4){const g=.299*d[i]+.587*d[i+1]+.114*d[i+2],v=Math.max(0,Math.min(255,(g-128)*1.22+128));d[i]=d[i+1]=d[i+2]=v}
-  x.putImageData(im,0,0);return c;
+  for(let i=0;i<d.length;i+=4){
+    const g=.299*d[i]+.587*d[i+1]+.114*d[i+2];
+    const v=Math.max(0,Math.min(255,(g-128)*1.15+128));
+    d[i]=d[i+1]=d[i+2]=v;
+  }
+  x.putImageData(im,0,0);
+  return c;
 }
 
 function zcParseTopText(text=''){
@@ -1398,26 +1415,51 @@ function zcParseBottomText(text=''){
   return {number:'',printedTotal:'',printedNumber:'',setCode:''};
 }
 
-async function zcRecognizeCanvas(canvas,psm='6'){
+async function zcRecognizeCanvas(canvas,psm='6',mode='general'){
   const worker=await zcGetOcrWorker();
-  try{await worker.setParameters({tessedit_pageseg_mode:String(psm)})}catch(e){}
+  try{
+    const params={tessedit_pageseg_mode:String(psm)};
+    if(mode==='number'){
+      params.tessedit_char_whitelist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/- ';
+    }else if(mode==='name'){
+      params.tessedit_char_whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzéÉ.!' -";
+    }
+    await worker.setParameters(params);
+  }catch(e){}
   const r=await worker.recognize(canvas);
   return r?.data?.text||'';
 }
 
 async function zcSmartRecognizeSource(source,isAuto=false){
-  $('scanStatus').textContent='Kaart herkennen…';
-  const bt=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6');let bottom=zcParseBottomText(bt);
-  const tt=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'6');let name=zcParseTopText(tt);
-  const ft=await zcRecognizeCanvas(zcScannerCrop(source,'full'),'11'),legacy=parseOCR(ft);
-  if(!name||name.length<3)name=legacy.name||'';
-  if(!bottom.number)bottom.number=legacy.number||'';
+  $('scanStatus').textContent='Kaartnummer lezen…';
+
+  const bottomText=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6','number');
+  const bottom=zcParseBottomText(bottomText);
+
+  // Return immediately if we have a strong full collector number.
+  // The database can often identify the card without reading the name.
+  if(bottom.number && bottom.printedTotal){
+    return {
+      name:'',
+      number:String(bottom.number||'').trim(),
+      printedTotal:String(bottom.printedTotal||'').trim(),
+      printedNumber:String(bottom.printedNumber||bottom.number||'').trim(),
+      setCode:String(bottom.setCode||'').trim(),
+      fast:true
+    };
+  }
+
+  $('scanStatus').textContent='Kaartnaam lezen…';
+  const topText=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'6','name');
+  const name=zcParseTopText(topText);
+
   return {
     name:String(name||'').trim(),
     number:String(bottom.number||'').trim(),
     printedTotal:String(bottom.printedTotal||'').trim(),
     printedNumber:String(bottom.printedNumber||bottom.number||'').trim(),
-    setCode:String(bottom.setCode||'').trim()
+    setCode:String(bottom.setCode||'').trim(),
+    fast:false
   };
 }
 
@@ -1545,12 +1587,31 @@ async function zcApplyScannedCard(card,sourceImage=null){
   return true;
 }
 
+
+async function zcReadNameOnlyFromLastSource(){
+  if(!zcLastScanSource)return '';
+  try{
+    const txt=await zcRecognizeCanvas(zcScannerCrop(zcLastScanSource,'top'),'6','name');
+    return zcParseTopText(txt)||'';
+  }catch(e){return ''}
+}
+
 async function zcFinishRecognizedScan(recognized){
   stopAutoScan();
   $('scanStatus').textContent='Kaart bevestigen in de kaartdatabase…';
   $('scanProgress').style.width='100%';
 
-  const matches=await zcFindScannedCard(recognized);
+  let matches=await zcFindScannedCard(recognized);
+
+  // If exact number leaves more than one candidate, read only the card name once.
+  if(matches.length>1 && !recognized.name){
+    $('scanStatus').textContent='Naam bevestigen…';
+    const name=await zcReadNameOnlyFromLastSource();
+    if(name){
+      recognized={...recognized,name};
+      matches=await zcFindScannedCard(recognized);
+    }
+  }
 
   if(matches.length===1){
     await zcApplyScannedCard(matches[0],zcLastScanSource);
@@ -1607,6 +1668,7 @@ async function openScanner(){
   $('retryBtn').classList.add('hidden');
   $('scanProgress').style.width='0';
   $('scanStatus').textContent='Camera wordt gestart…';
+  zcGetOcrWorker().catch(()=>{});
   stopAutoScan();autoScanAttempts=0;zcScanVotes=[];zcBurstRunning=false;
   try{
     stream=await navigator.mediaDevices.getUserMedia({
@@ -1670,10 +1732,18 @@ async function scanImage(data,isAuto=false){
     const p=await zcSmartRecognizeSource(img,isAuto);
 
     if(p?.number){
+      // Full collector number (e.g. 051/084 or 130/094) is strong enough
+      // to attempt an immediate exact database match.
+      if(p.printedTotal){
+        $('scanStatus').textContent=`Kaart ${p.printedNumber||p.number} controleren…`;
+        const done=await zcFinishRecognizedScan(p);
+        if(done)return;
+      }
+
       const vote=zcRegisterScanVote(p);
-      const recognized=!isAuto?p:(vote||(autoScanAttempts>=3?p:null));
+      const recognized=!isAuto?p:(vote||(autoScanAttempts>=2?p:null));
       if(recognized){
-        $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.printedNumber?'#'+recognized.printedNumber:(recognized.number?'#'+recognized.number:'')}. Controleren…`;
+        $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.number?'#'+recognized.number:''}. Controleren…`;
         const done=await zcFinishRecognizedScan(recognized);
         if(done)return;
       }
@@ -1689,7 +1759,7 @@ async function scanImage(data,isAuto=false){
       ocrBusy=false;
 
       // Faster burst: several frames, then keep trying at a calmer pace.
-      if(autoScanAttempts<10)scheduleAutoScan(autoScanAttempts<5?520:850);
+      if(autoScanAttempts<6)scheduleAutoScan(autoScanAttempts<3?450:700);
       else $('scanStatus').textContent='Nog geen zekere match. Gebruik “Scan nu” of kies een scherpe foto.';
       return;
     }
@@ -1701,7 +1771,7 @@ async function scanImage(data,isAuto=false){
     if(isAuto){
       $('scanStatus').textContent='Nieuwe scanpoging…';
       ocrBusy=false;
-      if(autoScanAttempts<10)scheduleAutoScan(750);
+      if(autoScanAttempts<6)scheduleAutoScan(650);
       return;
     }
 

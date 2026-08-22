@@ -1,20 +1,19 @@
-# ZamexCards Price Checker v9.1
+# ZamexCards Price Checker v9.3 – snelle scanner
 
-Scanner-identiteit is strenger gemaakt.
+Doel: normale herkenning binnen circa 2–5 seconden op moderne telefoons.
 
-Een kaart wordt alleen automatisch gekozen als minimaal twee sterke kenmerken overeenkomen:
-- volledig kaartnummer / collector number
-- setcode
-- kaartnaam
-- numerator van kaartnummer
+Nieuwe scanvolgorde:
+1. Alleen onderste kaartgedeelte OCR -> collector number / setcode.
+2. Bij volledig nummer zoals 051/084 of 130/094 -> direct databasecontrole.
+3. Alleen als meerdere kaarten mogelijk zijn -> één korte OCR van de kaartnaam.
+4. Geen volledige kaart-OCR meer bij iedere automatische poging.
 
-Een los nummer is nooit genoeg.
+Snelheidsverbeteringen:
+- kleinere OCR-afbeeldingen;
+- aparte tekenset voor kaartnummer;
+- aparte tekenset voor kaartnaam;
+- OCR-worker warmt al op terwijl de camera opent;
+- volledig collector number mag direct zoeken;
+- minder herhaalde scanpogingen.
 
-Uitvoering:
-- eerst gekeken welke uitvoeringen bij exact die kaart in de database bestaan;
-- één mogelijke uitvoering -> automatisch gekozen;
-- Basic / Normaal, Holo en Reverse Holo kunnen voorzichtig visueel worden herkend;
-- Poké Ball, Master Ball en stamps worden alleen automatisch gekozen als de database dit voor exact die kaart ondersteunt;
-- bij twijfel blijft Uitvoering op Automatisch.
-
-Hierdoor wordt liever geen automatische keuze gemaakt dan een verkeerde kaart of verkeerde uitvoering.
+Dit voorkomt dat drie zware OCR-rondes per frame nodig zijn.
