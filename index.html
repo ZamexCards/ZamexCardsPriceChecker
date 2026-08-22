@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v8.9 scanner recovery -->
+<!-- ZamexCards Price Checker v9.0 exact collector-number scanner -->
 </head>
 <body>
 <div class="app">
@@ -390,6 +390,9 @@ function zcTcgdexToResult(c){
     series:c.set?.serie?.name||c.serie?.name||'Pokémon TCG',
     setLogo:c.set?.logo?`${c.set.logo}.webp`:'',
     number:pseudo.number,
+    printedNumber:String(c.localId||c.number||pseudo.number||''),
+    printedTotal:String(c.set?.cardCount?.official||c.set?.cardCount?.total||c.set?.cardCount||''),
+    setCode:String(c.set?.code||c.set?.ptcgoCode||c.set?.id||''),
     rarity:pseudo.rarity,
     types:c.types||[],
     releaseDate:c.set?.releaseDate||'',
@@ -1365,12 +1368,34 @@ function zcParseTopText(text=''){
 }
 
 function zcParseBottomText(text=''){
-  const t=String(text).replace(/[|]/g,'/').replace(/\s+/g,' ').toUpperCase();
+  const t=String(text)
+    .replace(/[|]/g,'/')
+    .replace(/\s+/g,' ')
+    .toUpperCase();
+
+  // Exact printed collector number, e.g. 130/094.
   let m=t.match(/\b([A-Z]{0,6}\s*\d{1,4}[A-Z]?)\s*\/\s*([A-Z]{0,4}\s*\d{1,4})\b/);
-  if(m)return {number:m[1].replace(/\s+/g,''),printedTotal:m[2].replace(/\s+/g,'')};
+  if(m){
+    const numerator=m[1].replace(/\s+/g,'');
+    const denominator=m[2].replace(/\s+/g,'');
+    // Look near the collector number for a short set code such as PFL.
+    const pos=t.indexOf(m[0]);
+    const nearby=t.slice(Math.max(0,pos-24),Math.min(t.length,pos+m[0].length+24));
+    const codeMatch=nearby.match(/\b([A-Z]{2,5})\b(?=[^A-Z0-9]{0,8}(?:\d{1,4}\s*\/\s*\d{1,4}))/)
+      || nearby.match(/\b([A-Z]{2,5})\b/);
+    return {
+      number:numerator,
+      printedTotal:denominator,
+      printedNumber:`${numerator}/${denominator}`,
+      setCode:codeMatch?.[1]||''
+    };
+  }
+
+  // Promo/gallery numbering.
   m=t.match(/\b((?:TG|GG|SVP|SWSH|SM|XY|BW|DP|NP|MEP)\s*[- ]?\s*\d{2,4}[A-Z]?)\b/);
-  if(m)return {number:m[1].replace(/[\s-]+/g,'')};
-  return {number:''};
+  if(m)return {number:m[1].replace(/[\s-]+/g,''),printedTotal:'',printedNumber:m[1].replace(/[\s-]+/g,''),setCode:''};
+
+  return {number:'',printedTotal:'',printedNumber:'',setCode:''};
 }
 
 async function zcRecognizeCanvas(canvas,psm='6'){
@@ -1387,7 +1412,13 @@ async function zcSmartRecognizeSource(source,isAuto=false){
   const ft=await zcRecognizeCanvas(zcScannerCrop(source,'full'),'11'),legacy=parseOCR(ft);
   if(!name||name.length<3)name=legacy.name||'';
   if(!bottom.number)bottom.number=legacy.number||'';
-  return {name:String(name||'').trim(),number:String(bottom.number||'').trim()};
+  return {
+    name:String(name||'').trim(),
+    number:String(bottom.number||'').trim(),
+    printedTotal:String(bottom.printedTotal||'').trim(),
+    printedNumber:String(bottom.printedNumber||bottom.number||'').trim(),
+    setCode:String(bottom.setCode||'').trim()
+  };
 }
 
 let zcScanVotes=[];
@@ -1397,85 +1428,135 @@ function zcNormVoteName(v=''){
   return zcNormText(v).replace(/\b(ex|gx|v|max|vstar)\b/g,'').trim();
 }
 function zcVoteKey(v){
-  return `${zcNormVoteName(v?.name||'')}|${zcNormCardNumber(v?.number||'')}`;
+  return `${zcNormVoteName(v?.name||'')}|${zcNormCardNumber(v?.number||'')}|${zcNormCardNumber(v?.printedTotal||'')}`;
 }
 function zcRegisterScanVote(v){
   if(!v?.number)return null;
   zcScanVotes.push({
     name:String(v.name||'').trim(),
     number:String(v.number||'').trim(),
+    printedTotal:String(v.printedTotal||'').trim(),
+    printedNumber:String(v.printedNumber||'').trim(),
+    setCode:String(v.setCode||'').trim(),
     at:Date.now()
   });
 
-  // Keep only recent readings.
   const cutoff=Date.now()-12000;
-  zcScanVotes=zcScanVotes.filter(x=>x.at>=cutoff).slice(-8);
+  zcScanVotes=zcScanVotes.filter(x=>x.at>=cutoff).slice(-10);
 
-  // Number is the strongest signal. Name may vary slightly between OCR frames.
+  // Group by collector numerator AND denominator when the denominator is visible.
   const groups=new Map();
   for(const x of zcScanVotes){
     const num=zcNormCardNumber(x.number);
+    const den=zcNormCardNumber(x.printedTotal);
     if(!num)continue;
-    const arr=groups.get(num)||[];
+    const key=den?`${num}/${den}`:num;
+    const arr=groups.get(key)||[];
     arr.push(x);
-    groups.set(num,arr);
+    groups.set(key,arr);
   }
 
   let best=null;
-  for(const [number,arr] of groups){
+  for(const [key,arr] of groups){
     if(!best || arr.length>best.count){
-      // Pick the longest reasonable name observed for that same number.
-      const named=arr.filter(x=>x.name&&x.name.length>=3)
-        .sort((a,b)=>b.name.length-a.name.length);
+      const named=arr.filter(x=>x.name&&x.name.length>=3).sort((a,b)=>b.name.length-a.name.length);
+      const coded=arr.find(x=>x.setCode);
       best={
         number:arr[0].number,
+        printedTotal:arr[0].printedTotal||'',
+        printedNumber:arr[0].printedNumber||arr[0].number,
+        setCode:coded?.setCode||'',
         name:named[0]?.name||'',
         count:arr.length
       };
     }
   }
 
-  // Two matching frames are enough even with slight hand movement.
   return best&&best.count>=2?best:null;
 }
 
 async function zcFindScannedCard(recognized){
   const rawName=String(recognized?.name||'').trim();
   const rawNumber=String(recognized?.number||'').trim();
+  const printedTotal=String(recognized?.printedTotal||'').trim();
+  const setCode=String(recognized?.setCode||'').trim();
   if(!rawNumber)return [];
 
-  // First search worldwide by number + OCR name.
-  let parsed=zcParseSearch(rawName,'',rawNumber);
-  let cards=await zcGlobalCardSearch(parsed,'');
-  if(cards.length===1)return cards;
+  let candidates=[];
 
-  // If multiple/none, number-only is often more reliable than a noisy OCR name.
-  parsed=zcParseSearch('','',rawNumber);
-  cards=await zcGlobalCardSearch(parsed,'');
-  if(cards.length===1)return cards;
-
-  // If several share a number, rank OCR name similarity.
-  if(cards.length>1 && rawName){
-    const target=zcNormVoteName(rawName);
-    const scored=cards.map(c=>{
-      const n=zcNormVoteName(c.name||'');
-      let score=0;
-      if(n===target)score=100;
-      else if(n.includes(target)||target.includes(n))score=75;
-      else{
-        const ta=new Set(target.split(' ').filter(Boolean));
-        const tb=new Set(n.split(' ').filter(Boolean));
-        const common=[...ta].filter(x=>tb.has(x)).length;
-        score=common*20;
-      }
-      return {c,score};
-    }).sort((a,b)=>b.score-a.score);
-    if(scored[0] && scored[0].score>=40 && (!scored[1] || scored[0].score>scored[1].score)){
-      return [scored[0].c];
+  // If OCR sees a set code (e.g. PFL), resolve it first.
+  if(setCode){
+    const resolved=await zcResolveSetFromCatalog(setCode);
+    if(resolved?.tcgdexId){
+      const parsed={name:rawName,setQuery:setCode,setCode:setCode.toUpperCase(),setId:resolved.tcgdexId,number:rawNumber,preferredLang:resolved.lang||null,pokemonSetId:resolved.pokemonId||''};
+      candidates=await zcGlobalCardSearch(parsed,'');
     }
   }
 
-  return cards;
+  // Otherwise search globally by exact numerator.
+  if(!candidates.length){
+    const parsed=zcParseSearch(rawName,'',rawNumber);
+    candidates=await zcGlobalCardSearch(parsed,'');
+  }
+  if(!candidates.length){
+    const parsed=zcParseSearch('','',rawNumber);
+    candidates=await zcGlobalCardSearch(parsed,'');
+  }
+
+  if(!candidates.length)return [];
+
+  // Build strong identity score. The scanner must NEVER select solely because the numerator matches.
+  const targetName=zcNormVoteName(rawName);
+  const targetSet=String(setCode).toUpperCase();
+
+  const scored=candidates.map(c=>{
+    let score=0;
+    const cNum=zcNormCardNumber(c.number||'');
+    const cName=zcNormVoteName(c.name||'');
+    const cSetCode=String(c.setCode||c.ptcgoCode||c.setId||'').toUpperCase();
+
+    if(cNum===zcNormCardNumber(rawNumber))score+=30;
+
+    // Exact printed denominator is decisive if we know it.
+    const cPrinted=String(c.printedNumber||c.number||'');
+    const slash=cPrinted.match(/(\d{1,4})\s*\/\s*(\d{1,4})/);
+    if(printedTotal){
+      if(slash && zcNormCardNumber(slash[2])===zcNormCardNumber(printedTotal))score+=55;
+      else if(c.printedTotal && zcNormCardNumber(c.printedTotal)===zcNormCardNumber(printedTotal))score+=55;
+      else score-=45;
+    }
+
+    if(targetSet){
+      if(cSetCode===targetSet)score+=50;
+      else if(zcNormText(c.set||'').includes(zcNormText(targetSet)))score+=20;
+      else score-=20;
+    }
+
+    if(targetName){
+      if(cName===targetName)score+=60;
+      else if(cName.includes(targetName)||targetName.includes(cName))score+=38;
+      else{
+        const a=new Set(targetName.split(' ').filter(Boolean));
+        const b=new Set(cName.split(' ').filter(Boolean));
+        const common=[...a].filter(x=>b.has(x)).length;
+        score+=common*12;
+      }
+    }
+
+    return {c,score};
+  }).sort((a,b)=>b.score-a.score);
+
+  // Require a strong unique match.
+  const best=scored[0],second=scored[1];
+  if(!best)return [];
+
+  const minScore=(printedTotal||targetSet)?55:70;
+  const gap=second?best.score-second.score:999;
+
+  if(best.score>=minScore && gap>=18)return [best.c];
+
+  // If uncertain, return top plausible candidates rather than silently selecting a wrong card.
+  return scored.filter(x=>x.score>=Math.max(30,best.score-12)).slice(0,8).map(x=>x.c);
 }
 
 async function zcApplyScannedCard(card){
@@ -1537,19 +1618,29 @@ async function zcFinishRecognizedScan(recognized){
 
   if(matches.length>1){
     currentCards=matches;
-    selectedCard=matches[0];
+    selectedCard=null;
     renderStrip();
-    renderDetail();
+    $('detailPanel').innerHTML='<div class="placeholder"><strong>Meerdere kaarten passen bij de scan.</strong><br>Kies hieronder eerst de juiste kaart.</div>';
     stopCamera();
     setTimeout(()=>{
       closeScanner();
-      showToast('Meerdere kaarten passen bij de scan. Kies de juiste kaart uit de resultaten.');
+      showToast('Meerdere mogelijke kaarten gevonden. Kies eerst de juiste kaart.');
     },160);
     return true;
   }
 
   $('q').value=recognized.name||'';
   $('number').value=recognized.number||'';
+  if(recognized.setCode)$('set').value=recognized.setCode;
+
+  // If the printed denominator is known, a number-only fallback is unsafe
+  // (e.g. 130/094 must not become Base Set 2 #130).
+  if(recognized.printedTotal){
+    stopCamera();closeScanner();
+    showToast(`Scan gelezen als ${recognized.printedNumber||recognized.number}. Geen zekere exacte match; er wordt geen andere kaart gekozen.`);
+    return false;
+  }
+
   stopCamera();closeScanner();
   await searchCards();
   if(selectedCard){showToast('Kaart gevonden en in de Price Checker gezet.');return true}
@@ -1629,7 +1720,7 @@ async function scanImage(data,isAuto=false){
       const vote=zcRegisterScanVote(p);
       const recognized=!isAuto?p:(vote||(autoScanAttempts>=3?p:null));
       if(recognized){
-        $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.number?'#'+recognized.number:''}. Controleren…`;
+        $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.printedNumber?'#'+recognized.printedNumber:(recognized.number?'#'+recognized.number:'')}. Controleren…`;
         const done=await zcFinishRecognizedScan(recognized);
         if(done)return;
       }
