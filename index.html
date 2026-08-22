@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v8.3 searchable released-set dropdown + auto camera scan -->
+<!-- ZamexCards Price Checker v8.6 official set codes all languages -->
 </head>
 <body>
 <div class="app">
@@ -693,7 +693,15 @@ async function zcLoadGlobalCatalog(force=false){
               id:String(s.id),
               name:String(s.name||s.id),
               releaseDate:s.releaseDate||s.release_date||'',
-              aliases:[String(s.id),String(s.name||'')].filter(Boolean)
+              code:String(s.code||s.setCode||s.abbreviation||s.printedCode||''),
+              aliases:[
+                String(s.id||''),
+                String(s.name||''),
+                String(s.code||''),
+                String(s.setCode||''),
+                String(s.abbreviation||''),
+                String(s.printedCode||'')
+              ].filter(Boolean)
             });
           }
         }
@@ -745,15 +753,80 @@ function zcIsReleasedSet(entry){
   const endToday=new Date();endToday.setHours(23,59,59,999);
   return t<=endToday.getTime();
 }
-function zcEnglishCodeForSet(entry){
-  if(entry?.ptcgoCode)return entry.ptcgoCode;
-  if(entry?.lang!=='en')return entry?.id||'';
-  const n=zcCatalogNorm(entry?.name||'');
-  const official=ZC_GLOBAL_CATALOG.find(e=>e.source==='pokemontcg'&&zcCatalogNorm(e.name||'')===n&&e.ptcgoCode);
-  return official?.ptcgoCode||entry?.id||'';
+function zcOfficialEnglishSetEntry(entry){
+  if(!entry)return null;
+  if(entry.source==='pokemontcg'&&entry.ptcgoCode)return entry;
+
+  const nameKey=zcCatalogNorm(entry.name||'');
+  const idKey=String(entry.id||'').toLowerCase();
+
+  // Match the same set from Pokémon TCG API, which exposes the official PTCGO code.
+  let official=ZC_GLOBAL_CATALOG.find(e=>
+    e.source==='pokemontcg' &&
+    e.ptcgoCode &&
+    (
+      (nameKey && zcCatalogNorm(e.name||'')===nameKey) ||
+      String(e.id||'').toLowerCase()===idKey
+    )
+  );
+
+  // A few sources can vary slightly in punctuation/subtitles.
+  if(!official && nameKey){
+    official=ZC_GLOBAL_CATALOG.find(e=>{
+      if(e.source!=='pokemontcg'||!e.ptcgoCode)return false;
+      const n=zcCatalogNorm(e.name||'');
+      return n===nameKey || (n.length>4 && nameKey.length>4 && (n.includes(nameKey)||nameKey.includes(n)));
+    });
+  }
+
+  return official||null;
 }
+
+function zcEnglishCodeForSet(entry){
+  const official=zcOfficialEnglishSetEntry(entry);
+  if(official?.ptcgoCode)return String(official.ptcgoCode).toUpperCase();
+
+  // Promo aliases where the database set ID is more useful than a non-existing PTCGO code.
+  const promoAliases={
+    svp:'SVP',
+    swshp:'SWSH',
+    smp:'SM',
+    xyp:'XY',
+    bwp:'BW',
+    dpp:'DP',
+    np:'NP'
+  };
+  const id=String(entry?.id||'').toLowerCase();
+  if(promoAliases[id])return promoAliases[id];
+
+  return String(entry?.ptcgoCode||entry?.id||'').toUpperCase();
+}
+function zcRegionalSetCode(entry){
+  if(!entry)return '';
+
+  const lang=zcSelectedLanguage();
+
+  if(lang==='English')return zcEnglishCodeForSet(entry);
+
+  // TCGdex regional set IDs normally match the printed/collector set code
+  // for Japanese, Chinese and Korean releases (e.g. sv2a, s12a).
+  // Prefer an explicit source code if the API exposes one.
+  const explicit=String(
+    entry.code ||
+    entry.setCode ||
+    entry.abbreviation ||
+    entry.printedCode ||
+    ''
+  ).trim();
+
+  if(explicit)return explicit;
+
+  // For non-English sets, the TCGdex set ID is the best canonical code fallback.
+  return String(entry.id||entry.name||'').trim();
+}
+
 function zcSetChoiceValue(entry){
-  return zcSelectedLanguage()==='English'?zcEnglishCodeForSet(entry):(entry?.id||entry?.name||'');
+  return zcRegionalSetCode(entry);
 }
 function zcSetDropdownItems(){
   const langs=zcPrimarySetLanguages();
@@ -764,15 +837,33 @@ function zcSetDropdownItems(){
     const old=byName.get(key);
     if(!old){byName.set(key,e);continue}
     if(zcSelectedLanguage()==='English'){
-      if(e.source==='pokemontcg'&&old.source!=='pokemontcg')byName.set(key,e);
+      // Prefer the record carrying an official PTCGO setcode.
+      const eHasCode=!!zcOfficialEnglishSetEntry(e)?.ptcgoCode;
+      const oldHasCode=!!zcOfficialEnglishSetEntry(old)?.ptcgoCode;
+      if((eHasCode&&!oldHasCode) || (e.source==='pokemontcg'&&old.source!=='pokemontcg'))byName.set(key,e);
     }else if(e.source==='tcgdex'&&old.source!=='tcgdex')byName.set(key,e);
   }
   entries=[...byName.values()];
+
+  // Sorteer strikt op releasedatum:
+  // nieuwste bovenaan, oudste onderaan.
+  // Sets zonder releasedatum (bijv. sommige promo/special sets)
+  // komen na de sets met een bekende releasedatum.
   entries.sort((a,b)=>{
-    const db=zcDateValue(b.releaseDate),da=zcDateValue(a.releaseDate);
-    if(db!==da)return db-da;
-    return String(b.id||'').localeCompare(String(a.id||''),undefined,{numeric:true});
+    const da=zcDateValue(a.releaseDate);
+    const db=zcDateValue(b.releaseDate);
+
+    if(db && da && db!==da)return db-da;
+    if(db && !da)return 1;
+    if(!db && da)return -1;
+
+    return String(b.id||b.name||'').localeCompare(
+      String(a.id||a.name||''),
+      undefined,
+      {numeric:true,sensitivity:'base'}
+    );
   });
+
   return entries;
 }
 function zcRenderSetDropdown(){
@@ -782,12 +873,30 @@ function zcRenderSetDropdown(){
   if(q){
     items=items.filter(e=>{
       const code=String(zcSetChoiceValue(e)||'').toUpperCase();
-      return code.includes(raw)||zcCatalogNorm(e.name||'').includes(q)||zcCatalogAliases(e).some(a=>zcCatalogNorm(a).includes(q));
+      const official=zcSelectedLanguage()==='English'?zcOfficialEnglishSetEntry(e):null;
+      const officialCode=String(official?.ptcgoCode||'').toUpperCase();
+
+      return code.includes(raw) ||
+        officialCode.includes(raw) ||
+        zcCatalogNorm(e.name||'').includes(q) ||
+        zcCatalogAliases(e).some(a=>String(a).toUpperCase().includes(raw) || zcCatalogNorm(a).includes(q));
     });
+
+    // Exact setcode wins for every language.
+    // Examples: BRS, sv2a, s12a, regional Chinese/Korean codes.
+    const exact=items.filter(e=>{
+      const code=String(zcSetChoiceValue(e)||'').toUpperCase();
+      const aliases=zcCatalogAliases(e).map(a=>String(a).toUpperCase());
+      const official=zcSelectedLanguage()==='English'?zcOfficialEnglishSetEntry(e):null;
+      const officialCode=String(official?.ptcgoCode||'').toUpperCase();
+      return code===raw || officialCode===raw || aliases.includes(raw);
+    });
+    if(exact.length)items=exact;
   }
   items=items.slice(0,120);
   box.innerHTML=items.length?items.map(e=>{
-    const code=zcSetChoiceValue(e);
+    let code=zcSetChoiceValue(e);
+    if(zcSelectedLanguage()==='English')code=String(code).toUpperCase();
     const date=e.releaseDate?new Date(e.releaseDate).toLocaleDateString('nl-NL'):'Promo / special';
     return `<div class="set-option" role="option" data-value="${esc(code)}" data-name="${esc(e.name||'')}">
       <div><strong>${esc(e.name||e.id)}</strong><small>${esc(date)}</small></div>
@@ -817,7 +926,12 @@ async function zcResolveSetFromCatalog(query){
     zcCatalogAliases(e).some(a=>String(a).toUpperCase()===qu || zcCatalogNorm(a)===qn)
   );
   if(matches.length){
-    matches.sort((a,b)=>preferred.indexOf(a.lang)-preferred.indexOf(b.lang));
+    matches.sort((a,b)=>{
+      const aOfficial=String(a.ptcgoCode||'').toUpperCase()===qu?0:1;
+      const bOfficial=String(b.ptcgoCode||'').toUpperCase()===qu?0:1;
+      if(aOfficial!==bOfficial)return aOfficial-bOfficial;
+      return preferred.indexOf(a.lang)-preferred.indexOf(b.lang);
+    });
     const hit=matches[0];
     return {
       code:qu,

@@ -1,25 +1,35 @@
-# ZamexCards Price Checker v8.3
+# ZamexCards Price Checker v8.6
 
-## Set / setcode
-- Doorzoekbare dropdown.
-- Typen blijft mogelijk, bijvoorbeeld `BRS`.
-- De lijst filtert terwijl je typt.
-- Engels toont Engelse/internationale sets en promo-series zoals Black Star Promos.
-- Japans toont Japanse sets.
-- Chinees toont Simplified + Traditional Chinese sets.
-- Koreaans toont Koreaanse sets.
-- Nieuwste uitgebrachte set staat bovenaan.
-- Sets met een bekende toekomstige releasedatum worden verborgen tot de releasedatum.
-- Promo/special sets zonder releasedatum blijven zichtbaar.
-- De lijst komt uit de automatisch bijgewerkte wereldwijde setcatalogus.
+## Officiële setcodes voor alle talen
 
-## Scanner
-- Camerabeeld is minder ingezoomd door `object-fit: contain`.
-- Op ondersteunde telefoons wordt de minimale camerazoom ingesteld.
-- Automatische herkenning start vanzelf zodra de camera klaar is.
-- Zodra naam/nummer voldoende zeker zijn, wordt de kaart automatisch opgezocht en getoond.
-- De knop `Scan nu` blijft als handmatige fallback.
-- Foto maken en galerij kiezen blijven aanwezig.
+De dropdown gebruikt nu per taal de beste beschikbare officiële/canonieke setcode.
+
+### Engels
+- Brilliant Stars -> BRS
+- Fusion Strike -> FST
+- Astral Radiance -> ASR
+- Scarlet & Violet Promos -> SVP
+
+### Japans
+- Japanse officiële/canonieke codes zoals `sv2a`, `s12a`, enz.
+- Broncode heeft voorrang; anders wordt de canonieke TCGdex set-ID gebruikt.
+
+### Chinees
+- Chinese regionale setcode wordt gebruikt zodra de bron die levert.
+- Anders wordt de canonieke regionale set-ID gebruikt.
+
+### Koreaans
+- Koreaanse regionale setcode wordt gebruikt zodra de bron die levert.
+- Anders wordt de canonieke regionale set-ID gebruikt.
+
+## Filteren
+Typ je een exacte code, dan blijft alleen de exacte set zichtbaar.
+Dit geldt nu voor ALLE talen:
+- BRS -> Brilliant Stars
+- sv2a -> Pokémon Card 151 (Japanse set)
+- hetzelfde principe voor Chinese en Koreaanse codes
+
+De interne database-ID blijft alleen als technische fallback in gebruik.
 
 GitHub Pages:
 vervang alleen `index.html`, Commit changes, wacht kort en doe Ctrl+F5.
