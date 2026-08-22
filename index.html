@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.3 fast staged OCR scanner -->
+<!-- ZamexCards Price Checker v9.4 Android camera-start fix -->
 </head>
 <body>
 <div class="app">
@@ -1661,6 +1661,43 @@ async function zcFinishRecognizedScan(recognized){
   return false;
 }
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.
+async function zcGetUserMediaWithTimeout(constraints,timeoutMs=5000){
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API niet beschikbaar');
+
+  let timer;
+  return await Promise.race([
+    navigator.mediaDevices.getUserMedia(constraints),
+    new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error('camera-timeout')),timeoutMs);
+    })
+  ]).finally(()=>clearTimeout(timer));
+}
+
+async function zcStartVideoStream(mediaStream){
+  const video=$('camera');
+  video.srcObject=mediaStream;
+  video.setAttribute('playsinline','');
+  video.muted=true;
+
+  await new Promise((resolve,reject)=>{
+    if(video.readyState>=2 && video.videoWidth>0){resolve();return}
+    const onReady=()=>{cleanup();resolve()};
+    const onError=()=>{cleanup();reject(new Error('video-error'))};
+    const cleanup=()=>{
+      video.removeEventListener('loadedmetadata',onReady);
+      video.removeEventListener('canplay',onReady);
+      video.removeEventListener('error',onError);
+    };
+    video.addEventListener('loadedmetadata',onReady,{once:true});
+    video.addEventListener('canplay',onReady,{once:true});
+    video.addEventListener('error',onError,{once:true});
+    setTimeout(()=>{cleanup();resolve()},1800);
+  });
+
+  try{await video.play()}catch(e){}
+  return video.videoWidth>0;
+}
+
 async function openScanner(){
   $('scanModal').classList.add('open');
   $('capturedPreview').classList.add('hidden');
@@ -1668,23 +1705,75 @@ async function openScanner(){
   $('retryBtn').classList.add('hidden');
   $('scanProgress').style.width='0';
   $('scanStatus').textContent='Camera wordt gestart…';
-  zcGetOcrWorker().catch(()=>{});
-  stopAutoScan();autoScanAttempts=0;zcScanVotes=[];zcBurstRunning=false;
+
+  stopAutoScan();
+  autoScanAttempts=0;
+  zcScanVotes=[];
+  zcBurstRunning=false;
+
+  // Never start OCR before the camera is actually visible.
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},aspectRatio:{ideal:16/9}},
-      audio:false
-    });
-    const video=$('camera');video.srcObject=stream;video.setAttribute('playsinline','');
-    await video.play().catch(()=>{});
+    stopCamera();
+
+    try{
+      stream=await zcGetUserMediaWithTimeout({
+        video:{
+          facingMode:{ideal:'environment'},
+          width:{ideal:1280},
+          height:{ideal:720}
+        },
+        audio:false
+      },4500);
+    }catch(firstError){
+      // Android/Samsung fallback: use the simplest possible rear-camera request.
+      stream=await zcGetUserMediaWithTimeout({
+        video:{facingMode:'environment'},
+        audio:false
+      },4500);
+    }
+
+    const ready=await zcStartVideoStream(stream);
+
+    if(!ready){
+      // One final attempt without a facing-mode requirement.
+      stopCamera();
+      stream=await zcGetUserMediaWithTimeout({video:true,audio:false},4000);
+      await zcStartVideoStream(stream);
+    }
+
     await zcMinimizeCameraZoom();
-    $('scanStatus').textContent='Camera klaar. Houd de hele kaart binnen het groene kader; herkennen start automatisch.';
-    autoScanActive=true;scheduleAutoScan(650);
+
+    $('scanStatus').textContent='Camera klaar.';
+    autoScanActive=true;
+
+    // OCR warm-up only AFTER camera is running.
+    setTimeout(()=>{
+      zcGetOcrWorker().catch(()=>{});
+    },250);
+
+    // Give autofocus/exposure a moment to settle before auto recognition.
+    scheduleAutoScan(1100);
+
   }catch(e){
+    console.error('Camera start error:',e);
+    stopCamera();
+    $('camera').classList.remove('hidden');
     $('scanStatus').textContent='Camera kon niet worden geopend. Gebruik “Foto maken” of “Uit galerij kiezen”.';
   }
 }
-function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('camera').srcObject=null}
+
+function stopCamera(){
+  stopAutoScan();
+  if(stream){
+    try{stream.getTracks().forEach(t=>t.stop())}catch(e){}
+    stream=null;
+  }
+  const video=$('camera');
+  if(video){
+    try{video.pause()}catch(e){}
+    video.srcObject=null;
+  }
+}
 function closeScanner(){stopCamera();$('scanModal').classList.remove('open')}
 $('scanBtn').onclick=openScanner;
 $('closeScanner').onclick=closeScanner;

@@ -1,19 +1,14 @@
-# ZamexCards Price Checker v9.3 – snelle scanner
+# ZamexCards Price Checker v9.4 – camera start fix
 
-Doel: normale herkenning binnen circa 2–5 seconden op moderne telefoons.
+Fix voor zwart camerascherm op Android/Samsung:
 
-Nieuwe scanvolgorde:
-1. Alleen onderste kaartgedeelte OCR -> collector number / setcode.
-2. Bij volledig nummer zoals 051/084 of 130/094 -> direct databasecontrole.
-3. Alleen als meerdere kaarten mogelijk zijn -> één korte OCR van de kaartnaam.
-4. Geen volledige kaart-OCR meer bij iedere automatische poging.
+- OCR start niet meer tegelijk met de camera.
+- Eerst wordt de camera volledig geopend en zichtbaar gemaakt.
+- Daarna pas wordt OCR op de achtergrond voorbereid.
+- Eerste camera-aanvraag gebruikt lichte 1280x720 constraints.
+- Bij timeout volgt automatisch een eenvoudigere rear-camera aanvraag.
+- Als dat nog niet werkt, volgt een `video:true` fallback.
+- `video.srcObject` wordt bij sluiten volledig geleegd, zodat Android de camera niet geblokkeerd houdt.
+- Autofocus/exposure krijgt ongeveer 1 seconde om te stabiliseren voordat automatisch scannen begint.
 
-Snelheidsverbeteringen:
-- kleinere OCR-afbeeldingen;
-- aparte tekenset voor kaartnummer;
-- aparte tekenset voor kaartnaam;
-- OCR-worker warmt al op terwijl de camera opent;
-- volledig collector number mag direct zoeken;
-- minder herhaalde scanpogingen.
-
-Dit voorkomt dat drie zware OCR-rondes per frame nodig zijn.
+Upload alleen index.html naar GitHub Pages.
