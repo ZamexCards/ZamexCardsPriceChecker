@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v8.8 multi-frame consensus scanner + direct card apply -->
+<!-- ZamexCards Price Checker v8.9 scanner recovery -->
 </head>
 <body>
 <div class="app">
@@ -1320,10 +1320,7 @@ async function zcGetOcrWorker(){
     });
 
     try{
-      await worker.setParameters({
-        tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789éÉ.!'/- ",
-        preserve_interword_spaces:'1'
-      });
+      await worker.setParameters({preserve_interword_spaces:'1'});
     }catch(e){}
 
     zcOcrWorker=worker;
@@ -1334,42 +1331,15 @@ async function zcGetOcrWorker(){
 }
 
 function zcScannerCrop(source,part){
-  const imgW=source.videoWidth||source.naturalWidth||source.width;
-  const imgH=source.videoHeight||source.naturalHeight||source.height;
-  const canvas=document.createElement('canvas');
-  let sx=0,sy=0,sw=imgW,sh=imgH;
-
-  // Pokémon cards: name is at the top; collector/set number is at the bottom.
-  if(part==='top'){
-    sx=imgW*.035; sy=imgH*.015; sw=imgW*.93; sh=imgH*.255;
-  }else if(part==='bottom'){
-    sx=imgW*.025; sy=imgH*.76; sw=imgW*.95; sh=imgH*.235;
-  }else{
-    sx=imgW*.02; sy=imgH*.01; sw=imgW*.96; sh=imgH*.98;
-  }
-
-  const targetW=Math.min(1500,Math.max(900,Math.round(sw*1.35)));
-  const scale=targetW/sw;
-  canvas.width=Math.round(sw*scale);
-  canvas.height=Math.round(sh*scale);
-
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  ctx.drawImage(source,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-
-  // Fast grayscale + contrast + mild thresholding.
-  const image=ctx.getImageData(0,0,canvas.width,canvas.height);
-  const d=image.data;
-  for(let i=0;i<d.length;i+=4){
-    const gray=.299*d[i]+.587*d[i+1]+.114*d[i+2];
-    let v=(gray-128)*1.7+128;
-    // Keep anti-aliasing, but push background/light glare away from text.
-    if(v>205)v=245;
-    else if(v<65)v=18;
-    v=Math.max(0,Math.min(255,v));
-    d[i]=d[i+1]=d[i+2]=v;
-  }
-  ctx.putImageData(image,0,0);
-  return canvas;
+  const w=source.videoWidth||source.naturalWidth||source.width,h=source.videoHeight||source.naturalHeight||source.height;
+  const c=document.createElement('canvas'); let sy=0,sh=h;
+  if(part==='top')sh=h*.40; else if(part==='bottom'){sy=h*.58;sh=h*.42}
+  const tw=Math.min(1800,Math.max(1000,Math.round(w*1.25))),s=tw/w;
+  c.width=Math.round(w*s);c.height=Math.round(sh*s);
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(source,0,sy,w,sh,0,0,c.width,c.height);
+  const im=x.getImageData(0,0,c.width,c.height),d=im.data;
+  for(let i=0;i<d.length;i+=4){const g=.299*d[i]+.587*d[i+1]+.114*d[i+2],v=Math.max(0,Math.min(255,(g-128)*1.22+128));d[i]=d[i+1]=d[i+2]=v}
+  x.putImageData(im,0,0);return c;
 }
 
 function zcParseTopText(text=''){
@@ -1395,16 +1365,11 @@ function zcParseTopText(text=''){
 }
 
 function zcParseBottomText(text=''){
-  const t=String(text).replace(/\s+/g,' ').toUpperCase();
-
-  // Prefer explicit collector number x/y.
-  let m=t.match(/\b([A-Z]{0,5}\d{1,4}[A-Z]?)\s*\/\s*(\d{1,4})\b/);
-  if(m)return {number:m[1],printedTotal:m[2]};
-
-  // Galleries/promos and modern special numbering.
-  m=t.match(/\b((?:TG|GG|SV|SWSH|SM|XY|BW|DP|NP|MEP|SVP)?\d{2,4}[A-Z]?)\b/);
-  if(m)return {number:m[1]};
-
+  const t=String(text).replace(/[|]/g,'/').replace(/\s+/g,' ').toUpperCase();
+  let m=t.match(/\b([A-Z]{0,6}\s*\d{1,4}[A-Z]?)\s*\/\s*([A-Z]{0,4}\s*\d{1,4})\b/);
+  if(m)return {number:m[1].replace(/\s+/g,''),printedTotal:m[2].replace(/\s+/g,'')};
+  m=t.match(/\b((?:TG|GG|SVP|SWSH|SM|XY|BW|DP|NP|MEP)\s*[- ]?\s*\d{2,4}[A-Z]?)\b/);
+  if(m)return {number:m[1].replace(/[\s-]+/g,'')};
   return {number:''};
 }
 
@@ -1416,29 +1381,13 @@ async function zcRecognizeCanvas(canvas,psm='6'){
 }
 
 async function zcSmartRecognizeSource(source,isAuto=false){
-  // Bottom first: collector number is the strongest identifier and cheapest useful OCR.
-  $('scanStatus').textContent=isAuto?'Kaartnummer automatisch lezen…':'Kaartnummer lezen…';
-  const bottomCanvas=zcScannerCrop(source,'bottom');
-  const bottomText=await zcRecognizeCanvas(bottomCanvas,'6');
-  const bottom=zcParseBottomText(bottomText);
-
-  // Read the top independently for the Pokémon/card name.
-  $('scanStatus').textContent=isAuto?'Kaartnaam automatisch lezen…':'Kaartnaam lezen…';
-  const topCanvas=zcScannerCrop(source,'top');
-  const topText=await zcRecognizeCanvas(topCanvas,'6');
-  let name=zcParseTopText(topText);
-
-  // If either field is weak, do one full-card fallback OCR rather than repeated full scans.
-  if(!bottom.number || !name){
-    $('scanStatus').textContent='Extra controle uitvoeren…';
-    const fullCanvas=zcScannerCrop(source,'full');
-    const fullText=await zcRecognizeCanvas(fullCanvas,'11');
-    const old=parseOCR(fullText);
-    if(!name)name=old.name||'';
-    if(!bottom.number)bottom.number=old.number||'';
-  }
-
-  return {name,number:bottom.number||''};
+  $('scanStatus').textContent='Kaart herkennen…';
+  const bt=await zcRecognizeCanvas(zcScannerCrop(source,'bottom'),'6');let bottom=zcParseBottomText(bt);
+  const tt=await zcRecognizeCanvas(zcScannerCrop(source,'top'),'6');let name=zcParseTopText(tt);
+  const ft=await zcRecognizeCanvas(zcScannerCrop(source,'full'),'11'),legacy=parseOCR(ft);
+  if(!name||name.length<3)name=legacy.name||'';
+  if(!bottom.number)bottom.number=legacy.number||'';
+  return {name:String(name||'').trim(),number:String(bottom.number||'').trim()};
 }
 
 let zcScanVotes=[];
@@ -1599,6 +1548,12 @@ async function zcFinishRecognizedScan(recognized){
     return true;
   }
 
+  $('q').value=recognized.name||'';
+  $('number').value=recognized.number||'';
+  stopCamera();closeScanner();
+  await searchCards();
+  if(selectedCard){showToast('Kaart gevonden en in de Price Checker gezet.');return true}
+  showToast('Scan gelezen. Controleer de herkende naam en het kaartnummer.');
   return false;
 }
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.
@@ -1672,12 +1627,9 @@ async function scanImage(data,isAuto=false){
 
     if(p?.number){
       const vote=zcRegisterScanVote(p);
-
-      // Manual scan can finish immediately; automatic scan uses 2-frame consensus.
-      if(!isAuto || vote){
-        const recognized=!isAuto?p:vote;
+      const recognized=!isAuto?p:(vote||(autoScanAttempts>=3?p:null));
+      if(recognized){
         $('scanStatus').textContent=`Herkenning: ${recognized.name||'naam via database'} ${recognized.number?'#'+recognized.number:''}. Controleren…`;
-
         const done=await zcFinishRecognizedScan(recognized);
         if(done)return;
       }
