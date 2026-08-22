@@ -12,7 +12,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v6.8 real prices / no demo values -->
+<!-- ZamexCards Price Checker v7.0 TCGdex avg30 only -->
 </head>
 <body>
 <div class="app">
@@ -107,8 +107,8 @@ function drawChart(canvas,values){if(!canvas)return;const ratio=devicePixelRatio
 function renderStrip(){const el=$('resultsStrip');if(currentCards.length<=1){el.innerHTML='';return}el.innerHTML=currentCards.map((c,i)=>`<button class="result-chip ${selectedCard?.id===c.id?'active':''}" onclick="selectCard(${i})">${imageTag(c)}<span><b>${esc(c.name)}</b><br>${esc(c.set)} #${esc(c.number)}</span></button>`).join('')}
 function selectCard(i){selectedCard=currentCards[i];renderStrip();renderDetail()}
 function sellerRows(c){return '<div class="placeholder" style="padding:22px 10px">Verkoperprijzen zijn nog niet beschikbaar via de huidige prijsbron.</div>'}
-function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const p=c.prices||zcNoPrice(),hasMove=p.movement!==null&&p.movement!==undefined,up=hasMove&&Number(p.movement)>=0,sourceNote=p.isReal?'<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Prijsbron: Cardmarket via Pokémon TCG API</div>':'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze kaart is nog geen echte prijsdata beschikbaar.</div>';el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addFav('${esc(c.id)}')">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc($('variant').value)}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addFav('${esc(c.id)}')">+ Voeg toe aan lijst</button><button class="btn" onclick="openAlert('${esc(c.id)}')">🔔 Prijsalarm</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>Actuele vanaf prijs</span><strong>${euro(p.fromPrice)}</strong></div><div class="price-row"><span>Trendprijs</span><strong>${euro(p.trendPrice)}</strong></div><div class="price-row"><span>Gemiddelde prijs (30 dagen)</span><strong>${euro(p.average30Days)}</strong></div><div class="price-row"><span>PSA 10 prijs</span><strong>Niet beschikbaar</strong></div><div class="price-row"><span>Prijsontwikkeling (30 dagen)</span><span class="movement ${up?'up':'down'}">${hasMove?((up?'+':'')+Number(p.movement).toFixed(1)+'%'):'Niet beschikbaar'}</span></div><div class="price-row seller"><span>Goedkoopste NL verkoper</span><strong>Niet beschikbaar</strong></div>${sourceNote}</div></div></div><div class="lower-grid"><div class="chart-box"><h3>Prijsontwikkeling (30 dagen)</h3><canvas id="priceChart" class="chart"></canvas></div><div class="seller-box"><h3 style="margin-top:0">Top 5 laagste prijzen (Engels)</h3>${sellerRows(c)}</div></div>`;requestAnimationFrame(()=>drawChart($('priceChart'),p.history||[]))}
-const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep',BLK:'sv10.5b',WHT:'sv10.5w'};
+function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,avg=zcAvg30ForSelection(c,selectedVariant),p={...(c.prices||zcNoPrice()),average30Days:avg},sourceNote=avg!=null?'<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: TCGdex Europese marktfeed · gemiddelde 30 dagen</div>':'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze uitvoering is nog geen gemiddelde 30-dagenprijs beschikbaar.</div>';c.prices=p;el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addFav('${esc(c.id)}')">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(selectedVariant)}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addFav('${esc(c.id)}')">+ Voeg toe aan lijst</button><button class="btn" onclick="openAlert('${esc(c.id)}')">🔔 Prijsalarm</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>Gemiddelde prijs (30 dagen)</span><strong>${euro(avg)}</strong></div>${sourceNote}</div></div></div>`}
+const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep',BLK:'sv10.5b',WHT:'sv10.5w',PBL:'PBL'};
 function zcClean(v=''){return String(v).trim().replace(/[^a-zA-Z0-9\s'.:/-]/g,'')}
 function zcNormNumber(v=''){return zcClean(v).toUpperCase().replace(/^0+(?=\d)/,'')}
 function zcParseSearch(rawName,rawSet,rawNumber){
@@ -179,6 +179,67 @@ function zcParseSearch(rawName,rawSet,rawNumber){
 }
 function zcNoPrice(){return{fromPrice:null,trendPrice:null,average30Days:null,psa10Price:null,movement:null,cheapestDutchSeller:null,currency:'EUR',history:[],source:'unavailable',isReal:false}}
 function zcRealCardmarketPrices(card){const p=card?.cardmarket?.prices||{},num=v=>Number.isFinite(Number(v))?Number(v):null,from=num(p.lowPrice),trend=num(p.trendPrice),avg30=num(p.avg30)??num(p.averageSellPrice),hasAny=[from,trend,avg30].some(v=>v!==null);return{fromPrice:from,trendPrice:trend,average30Days:avg30,psa10Price:null,movement:null,cheapestDutchSeller:null,currency:'EUR',history:[],source:hasAny?'Cardmarket via Pokémon TCG API':'unavailable',isReal:hasAny}}
+
+function zcFinishLabel(v){
+  const foil=(v?.foil||'').toLowerCase();
+  const stamps=(v?.stamp||[]);
+  if(foil==='pokeball')return 'Poké Ball';
+  if(foil==='greatball')return 'Great Ball';
+  if(foil==='masterball')return 'Master Ball';
+  if(foil==='cracked-ice')return 'Cracked Ice Holo';
+  if(foil==='cosmos'||foil==='cosmos-holo')return 'Cosmos Holo';
+  if(foil==='galaxy'||foil==='galaxy-holo')return 'Galaxy Holo';
+  if(v?.type==='reverse')return 'Reverse Holo';
+  if(v?.type==='holo')return 'Holo';
+  return 'Standard';
+}
+function zcVariantsDetailed(card){
+  const arr=Array.isArray(card?.variants_detailed)?[...card.variants_detailed]:[];
+  if(!arr.length&&card?.variants){
+    if(card.variants.normal)arr.push({type:'normal',variantId:(card.id||'card')+'-normal'});
+    if(card.variants.holo)arr.push({type:'holo',variantId:(card.id||'card')+'-holo'});
+    if(card.variants.reverse)arr.push({type:'reverse',variantId:(card.id||'card')+'-reverse'});
+  }
+  return arr;
+}
+function zcAvg30FromPricing(pricing,isFoil=false){
+  const p=pricing?.cardmarket||pricing||null;
+  if(!p)return null;
+  const raw=isFoil ? (p['avg30-holo'] ?? p.avg30) : p.avg30;
+  const n=Number(raw);
+  return Number.isFinite(n)&&n>0?n:null;
+}
+function zcAvg30ForSelection(card,selectedVariant){
+  const variants=card?.variantsDetailed||[];
+  const wanted=selectedVariant||'Standard';
+
+  // Find the exact detailed variant when TCGdex supplies one.
+  const exact=variants.find(v=>zcFinishLabel(v)===wanted);
+  if(exact){
+    const isFoil=exact.type!=='normal'||!!exact.foil;
+    const v=zcAvg30FromPricing(exact.pricing,isFoil);
+    if(v!=null)return v;
+  }
+
+  // Fall back to card-level TCGdex pricing.
+  const foilWanted=wanted!=='Standard';
+  return zcAvg30FromPricing(card?.tcgdexPricing,foilWanted);
+}
+function zcMarketPricesFromTcgdex(card){
+  const avg=zcAvg30ForSelection(card,'Standard');
+  return{
+    fromPrice:null,
+    trendPrice:null,
+    average30Days:avg,
+    psa10Price:null,
+    movement:null,
+    cheapestDutchSeller:null,
+    currency:'EUR',
+    history:[],
+    source:avg!=null?'TCGdex Europese marktfeed – gemiddeld 30 dagen':'unavailable',
+    isReal:avg!=null
+  };
+}
 function zcAssetCandidates(base=''){
   if(!base)return[];
   if(/\.(png|jpe?g|webp)$/i.test(base))return[base];
@@ -187,16 +248,29 @@ function zcAssetCandidates(base=''){
 function zcTcgdexToResult(c){
   const imgs=zcAssetCandidates(c.image||'');
   const pseudo={id:c.id||('tcgdex-'+Math.random()),name:c.name||'Onbekende kaart',number:c.localId||c.number||'',rarity:c.rarity||'Onbekend'};
-  return{
-    id:pseudo.id,name:pseudo.name,image:imgs[0]||'',imageCandidates:imgs,
-    set:c.set?.name||c.set?.id||'',series:c.set?.serie?.name||c.serie?.name||'Pokémon TCG',
-    setLogo:c.set?.logo?`${c.set.logo}.webp`:'',number:pseudo.number,rarity:pseudo.rarity,
-    types:c.types||[],releaseDate:c.set?.releaseDate||'',prices:zcNoPrice()
-  }
+  const result={
+    id:pseudo.id,
+    name:pseudo.name,
+    image:imgs[0]||'',
+    imageCandidates:imgs,
+    set:c.set?.name||c.set?.id||'',
+    setId:c.set?.id||'',
+    series:c.set?.serie?.name||c.serie?.name||'Pokémon TCG',
+    setLogo:c.set?.logo?`${c.set.logo}.webp`:'',
+    number:pseudo.number,
+    rarity:pseudo.rarity,
+    types:c.types||[],
+    releaseDate:c.set?.releaseDate||'',
+    tcgdexPricing:c.pricing?.cardmarket||null,
+    variantsDetailed:zcVariantsDetailed(c),
+    prices:zcNoPrice()
+  };
+  result.prices=zcMarketPricesFromTcgdex(result);
+  return result;
 }
 function zcPokeToResult(c){
   const imgs=[c.images?.small,c.images?.large].filter(Boolean);
-  return{id:c.id,name:c.name,image:imgs[0]||'',imageCandidates:imgs,set:c.set?.name||'',series:c.set?.series||'',setLogo:c.set?.images?.logo||'',number:c.number||'',rarity:c.rarity||'Onbekend',types:c.types||[],releaseDate:c.set?.releaseDate||'',prices:zcRealCardmarketPrices(c)}
+  return{id:c.id,name:c.name,image:imgs[0]||'',imageCandidates:imgs,set:c.set?.name||'',setId:c.set?.id||'',series:c.set?.series||'',setLogo:c.set?.images?.logo||'',number:c.number||'',rarity:c.rarity||'Onbekend',types:c.types||[],releaseDate:c.set?.releaseDate||'',tcgdexPricing:null,variantsDetailed:[],prices:zcNoPrice()}
 }
 async function zcFetchJson(url,timeout=9000){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);
@@ -342,6 +416,38 @@ async function zcPokemonFallback(parsed,rarity){
   return[...seen.values()].slice(0,18).map(zcPokeToResult)
 }
 
+
+const ZC_NEW_SET_FALLBACKS={"PBL": {"name": "Pitch Black", "releaseDate": "2026-07-17", "cards": {"55": "Morpeko ex", "56": "Zarude", "57": "Maschiff", "58": "Mabosstiff", "59": "Chi-Yu", "60": "Skarmory", "61": "Shieldon", "62": "Bastiodon", "63": "Bronzor", "64": "Bronzong", "65": "Mega Excadrill ex"}}};
+
+function zcLocalNewSetSearch(parsed,rarity){
+  const code=(parsed.setCode||'').toUpperCase();
+  const set=ZC_NEW_SET_FALLBACKS[code];
+  if(!set||!parsed.number)return [];
+  const num=String(parseInt(String(parsed.number).replace(/\D/g,''),10));
+  const name=set.cards[num];
+  if(!name)return [];
+  if(parsed.name && !name.toLowerCase().includes(parsed.name.toLowerCase()))return [];
+  const pseudo={
+    id:`local-${code}-${num}`,
+    name,
+    number:String(num).padStart(3,'0'),
+    rarity:'Onbekend'
+  };
+  return [{
+    id:pseudo.id,
+    name:pseudo.name,
+    image:'',
+    imageCandidates:[],
+    set:set.name,
+    series:'Mega Evolution',
+    setLogo:'',
+    number:pseudo.number,
+    rarity:pseudo.rarity,
+    types:[],
+    releaseDate:set.releaseDate,
+    prices:zcNoPrice()
+  }]
+}
 const ZC_LANG_MAP={
   English:['en'],
   Dutch:['nl','en'],
@@ -454,47 +560,105 @@ async function zcResolveUnknownSetCode(code){
   return resolved;
 }
 
+
+async function zcAttachTcgdexMarket(card,parsed){
+  try{
+    let full=null;
+    // If TCGdex set ID is known, direct card lookup is best.
+    if(parsed?.setId&&card?.number){
+      full=await zcTcgdexCardById(parsed.setId,card.number);
+    }
+    // Otherwise search by name + number.
+    if(!full){
+      const params=new URLSearchParams();
+      if(card?.name)params.set('name',card.name);
+      if(card?.number)params.set('localId',card.number);
+      params.set('pagination:page','1');
+      params.set('pagination:itemsPerPage','20');
+      for(const lang of zcLanguageChain()){
+        try{
+          const list=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards?${params}`);
+          if(Array.isArray(list)&&list.length){
+            const brief=list.find(x=>zcNormNumber(x.localId||'')===zcNormNumber(card.number||''))||list[0];
+            full=await zcTcgdexFullCard(brief.id,lang)||brief;
+            if(full)break;
+          }
+        }catch(e){}
+      }
+    }
+    if(full){
+      card.tcgdexPricing=full.pricing?.cardmarket||null;
+      card.variantsDetailed=zcVariantsDetailed(full);
+      const avg=zcAvg30ForSelection(card,document.getElementById('variant')?.value||'Standard');
+      card.prices={...zcNoPrice(),average30Days:avg,source:avg!=null?'TCGdex Europese marktfeed – gemiddeld 30 dagen':'unavailable',isReal:avg!=null};
+    }
+  }catch(e){}
+  return card;
+}
+async function zcAttachMarketToCards(cards,parsed){
+  return await Promise.all((cards||[]).map(c=>zcAttachTcgdexMarket(c,parsed)));
+}
+
 async function zcSearchDirect(rawName,rawSet,rawNumber,rarity){
   let parsed=zcParseSearch(rawName,rawSet,rawNumber);
   const explicitSet=zcClean(rawSet).toUpperCase();
+
   if(explicitSet && !parsed.setId && /^[A-Z0-9.:-]{2,12}$/.test(explicitSet)){
     const r=await zcResolveUnknownSetCode(explicitSet);
-    if(r){parsed.setCode=explicitSet;parsed.setId=r.tcgdexId||'';parsed.pokemonSetId=r.pokemonId||''}
-  }
-  if(!parsed.name&&!parsed.setId&&!parsed.number&&!parsed.pokemonSetId)return[];
-  const language=zcSelectedLanguage();
-  let cards=[];
-  if(language==='English'){
-    if(parsed.pokemonSetId){
-      const attempts=[];
-      if(parsed.number&&parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number} name:${parsed.name}*`);
-      if(parsed.number)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number}`);
-      if(parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} name:${parsed.name}*`);
-      const seen=new Map();
-      for(const q of attempts){
-        try{
-          const d=await zcFetchJson(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&orderBy=-set.releaseDate,number&pageSize=40`);
-          for(const c of d.data||[]){
-            if(c.set?.id!==parsed.pokemonSetId)continue;
-            if(parsed.number&&zcNormNumber(c.number)!==zcNormNumber(parsed.number))continue;
-            if(parsed.name&&!c.name.toLowerCase().includes(parsed.name.toLowerCase()))continue;
-            if(rarity&&(c.rarity||'').toLowerCase()!==rarity.toLowerCase())continue;
-            seen.set(c.id,c)
-          }
-        }catch(e){}
-        if(seen.size)break
-      }
-      cards=[...seen.values()].slice(0,18).map(zcPokeToResult);
-      if(cards.length)return cards
+    if(r){
+      parsed.setCode=explicitSet;
+      parsed.setId=r.tcgdexId||'';
+      parsed.pokemonSetId=r.pokemonId||'';
     }
-    cards=await zcPokemonFallback(parsed,rarity);
-    if(cards.length)return cards
   }
-  if(parsed.setId){cards=await zcTcgdexSearch(parsed,rarity);if(cards.length)return cards}
+
+  if(!parsed.name&&!parsed.setId&&!parsed.number&&!parsed.pokemonSetId)return[];
+
+  let cards=[];
+
+  // TCGdex first because this is the source used by kaartwaardezoeker
+  // for avg30 European market indicators.
+  if(parsed.setId){
+    cards=await zcTcgdexSearch(parsed,rarity);
+    if(cards.length)return cards;
+  }
+
   cards=await zcTcgdexSearch(parsed,rarity);
   if(cards.length)return cards;
-  return await zcPokemonFallback(parsed,rarity)
+
+  // Pokémon TCG API remains a card-finding fallback, but pricing is attached from TCGdex.
+  if(parsed.pokemonSetId){
+    const attempts=[];
+    if(parsed.number&&parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number} name:${parsed.name}*`);
+    if(parsed.number)attempts.push(`set.id:${parsed.pokemonSetId} number:${parsed.number}`);
+    if(parsed.name)attempts.push(`set.id:${parsed.pokemonSetId} name:${parsed.name}*`);
+    const seen=new Map();
+    for(const q of attempts){
+      try{
+        const d=await zcFetchJson(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&orderBy=-set.releaseDate,number&pageSize=40`);
+        for(const c of d.data||[]){
+          if(c.set?.id!==parsed.pokemonSetId)continue;
+          if(parsed.number&&zcNormNumber(c.number)!==zcNormNumber(parsed.number))continue;
+          if(parsed.name&&!c.name.toLowerCase().includes(parsed.name.toLowerCase()))continue;
+          if(rarity&&(c.rarity||'').toLowerCase()!==rarity.toLowerCase())continue;
+          seen.set(c.id,c);
+        }
+      }catch(e){}
+      if(seen.size)break;
+    }
+    cards=[...seen.values()].slice(0,18).map(zcPokeToResult);
+    if(cards.length)return await zcAttachMarketToCards(cards,parsed);
+  }
+
+  cards=await zcPokemonFallback(parsed,rarity);
+  if(cards.length)return await zcAttachMarketToCards(cards,parsed);
+
+  const localCards=zcLocalNewSetSearch(parsed,rarity);
+  if(localCards.length)return localCards;
+
+  return [];
 }
+
 async function searchCards(e){
   e?.preventDefault();
   $('detailPanel').innerHTML='<div class="placeholder">Kaarten zoeken…</div>';
@@ -503,7 +667,7 @@ async function searchCards(e){
     currentCards=await zcSearchDirect($('q').value,$('set').value,$('number').value,$('rarity').value);
     selectedCard=currentCards[0]||null;
     renderStrip();renderDetail();
-    if(!currentCards.length)showToast('Geen kaart gevonden. Controleer setcode, taal en kaartnummer. Nieuwe sets verschijnen zodra de databron ze heeft gepubliceerd.')
+    if(!currentCards.length)showToast('Geen kaart gevonden. Controleer setcode, taal en kaartnummer. Voor zeer nieuwe sets wordt ook een aanvullende setindex gebruikt.')
   }catch(err){
     console.error(err);
     $('detailPanel').innerHTML='<div class="placeholder"><strong>Zoeken mislukt.</strong><br>De kaartdatabase kon niet worden bereikt. Probeer opnieuw.</div>'
@@ -511,14 +675,15 @@ async function searchCards(e){
 }
 
 function details(){return{variant:$('variant').value,language:$('language').value,condition:$('condition').value,graded:$('graded').value==='yes',gradingCompany:$('graded').value==='yes'?$('gradingCompany').value:null,grade:$('graded').value==='yes'?$('grade').value:null}}
-function addFav(id){const c=currentCards.find(x=>x.id===id)||selectedCard;if(!c)return;const d=details(),listId=[c.id,d.variant,d.language,d.condition,d.graded?d.gradingCompany:'raw',d.graded?d.grade:''].join('|'),f=store.favs,existing=f.find(x=>(x.listId||x.id)===listId);if(existing)existing.quantity=(Number(existing.quantity)||1)+1;else f.unshift({...c,...d,listId,quantity:1});store.favs=f.slice(0,60);renderFavorites();showToast('Kaart toegevoegd aan je lijst.')}
+function addFav(id){const c=currentCards.find(x=>x.id===id);if(!c)return;const d=details(),avg=zcAvg30ForSelection(c,d.variant),prices={...(c.prices||zcNoPrice()),average30Days:avg},listId=[c.id,d.variant,d.language,d.condition,d.graded?d.gradingCompany+d.grade:'raw'].join('|'),old=store.favs.find(x=>x.listId===listId);if(old)old.quantity=(old.quantity||1)+1;else store.favs.push({...c,prices,...d,listId,quantity:1});save();renderFavorites();showToast('Kaart toegevoegd aan lijst.')}
 function changeQty(id,delta){const f=store.favs,item=f.find(x=>(x.listId||x.id)===id);if(!item)return;item.quantity=Math.max(1,(Number(item.quantity)||1)+delta);store.favs=f;renderFavorites()}
 function removeFav(id){store.favs=store.favs.filter(x=>(x.listId||x.id)!==id);renderFavorites()}
-function renderFavorites(){const f=store.favs.map(x=>({...x,quantity:Math.max(1,Number(x.quantity)||1)})),priceOf=x=>{const p=x.prices||{},v=p.average30Days??p.trendPrice??p.fromPrice;return(v===null||v===undefined||!Number.isFinite(Number(v)))?null:Number(v)},totalQty=f.reduce((s,x)=>s+x.quantity,0),total=f.reduce((s,x)=>{const v=priceOf(x);return s+(v===null?0:v*x.quantity)},0);$('uniqueCount').textContent=f.length;$('favCount').textContent=totalQty;$('totalQty').textContent=totalQty;$('grandTotal').textContent=euro(total);$('eightyTotal').textContent=euro(total*.8);$('favorites').innerHTML=f.length?f.map(x=>{const unit=priceOf(x),totalItem=unit===null?null:unit*x.quantity;return `<div class="mini">${imageTag(x)}<div><h3>${esc(x.name)}</h3><div class="mini-meta">${esc(x.number)} · ${esc(x.variant||'Standard')}<br>${esc(x.language||'English')} · ${x.graded?esc((x.gradingCompany||'PSA')+' '+(x.grade||'10')):esc(x.condition||'Near Mint')}</div></div><div class="mini-right"><div><strong>${euro(unit)}</strong><small>${unit===null?'geen prijsdata':'per stuk'}</small></div><div class="qty"><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',-1)">−</button><span>${x.quantity}x</span><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',1)">+</button><button class="btn danger sm" onclick="removeFav('${esc(x.listId||x.id)}')">×</button></div><div class="item-total">Totaal: ${euro(totalItem)}</div></div></div>`}).join(''):'<div class="empty-list">Nog geen kaarten toegevoegd.</div>'}
+function renderFavorites(){const f=store.favs.map(x=>({...x,quantity:Math.max(1,Number(x.quantity)||1)})),priceOf=x=>{const v=x.prices?.average30Days;return(v===null||v===undefined||!Number.isFinite(Number(v)))?null:Number(v)},totalQty=f.reduce((s,x)=>s+x.quantity,0),total=f.reduce((s,x)=>{const v=priceOf(x);return s+(v===null?0:v*x.quantity)},0);$('uniqueCount').textContent=f.length;$('favCount').textContent=totalQty;$('totalQty').textContent=totalQty;$('grandTotal').textContent=euro(total);$('eightyTotal').textContent=euro(total*.8);$('favorites').innerHTML=f.length?f.map(x=>{const unit=priceOf(x),totalItem=unit===null?null:unit*x.quantity;return `<div class="mini">${imageTag(x)}<div><h3>${esc(x.name)}</h3><div class="mini-meta">${esc(x.number)} · ${esc(x.variant||'Standard')}<br>${esc(x.language||'English')} · ${x.graded?esc((x.gradingCompany||'PSA')+' '+(x.grade||'10')):esc(x.condition||'Near Mint')}</div></div><div class="mini-right"><div><strong>${euro(unit)}</strong><small>${unit===null?'geen 30-dagenprijs':'gemiddeld 30 dagen'}</small></div><div class="qty"><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',-1)">−</button><span>${x.quantity}x</span><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',1)">+</button><button class="btn danger sm" onclick="removeFav('${esc(x.listId||x.id)}')">×</button></div><div class="item-total">Totaal: ${euro(totalItem)}</div></div></div>`}).join(''):'<div class="empty-list">Nog geen kaarten toegevoegd.</div>'}
 function openAlert(id){selectedAlertCard=currentCards.find(x=>x.id===id)||selectedCard;if(!selectedAlertCard)return;$('alertCardName').textContent=selectedAlertCard.name+' – huidige trendprijs '+euro(selectedAlertCard.prices?.trendPrice);$('alertModal').classList.add('open')}
 function closeAlert(){$('alertModal').classList.remove('open');selectedAlertCard=null;$('alertTarget').value=''}
 $('saveAlert').onclick=()=>{if(!selectedAlertCard||!$('alertTarget').value)return;const a=store.alerts.filter(x=>x.id!==selectedAlertCard.id);a.unshift({id:selectedAlertCard.id,name:selectedAlertCard.name,target:Number($('alertTarget').value),current:selectedAlertCard.prices?.trendPrice});store.alerts=a;closeAlert();showToast('Prijsalarm opgeslagen in deze browser.')}
 function showToast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2800)}
+$('variant').addEventListener('change',()=>{if(selectedCard)renderDetail();});
 $('graded').addEventListener('change',()=>$('gradingOptions').classList.toggle('show',$('graded').value==='yes'));$('searchForm').addEventListener('submit',searchCards);$('clearSearch').onclick=()=>{['q','set','number'].forEach(id=>$(id).value='');$('rarity').value='';$('variant').value='Standard';$('language').value='English';$('condition').value='Near Mint';$('graded').value='no';$('gradingOptions').classList.remove('show');$('q').focus()};$('clearAll').onclick=()=>{if(confirm('Weet je zeker dat je de hele kaartenlijst wilt leegmaken?')){store.favs=[];renderFavorites()}};
 
 // Mobiele kaartscanner: camera + OCR in de browser. Geen API-key nodig.

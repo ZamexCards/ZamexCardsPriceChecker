@@ -1,10 +1,17 @@
-# ZamexCards Price Checker v6.8 – echte prijsdata
+# ZamexCards Price Checker v7.0 – alleen gemiddeld 30 dagen
 
-- Alle willekeurige demo-prijzen zijn verwijderd.
-- Engelstalige kaarten gebruiken waar beschikbaar echte Cardmarket-prijsvelden uit de Pokémon TCG API.
-- Als er geen echte prijs is, staat er `Niet beschikbaar`.
-- PSA 10, goedkoopste Nederlandse verkoper, Top 5 verkopers, prijsbeweging en grafiek worden niet meer verzonnen.
-- De kaartenlijst en 80%-berekening gebruiken alleen echte beschikbare prijsdata.
+Deze versie gebruikt dezelfde prijsaanpak als `kaartwaardezoeker`:
 
-Upload alleen de nieuwe `index.html` naar GitHub Pages.
-Daarna Commit changes, 1-2 minuten wachten en Ctrl + F5.
+- kaartdata via TCGdex;
+- Europese marktfeed uit TCGdex;
+- alleen `avg30` / `avg30-holo`;
+- indien een specifieke TCGdex-uitvoering eigen pricing heeft, wordt die gebruikt;
+- geen demo-prijzen;
+- geen vanafprijs, trendprijs, PSA 10, prijsontwikkeling of fictieve verkopers.
+
+De gekozen uitvoering (Standaard, Poké Ball, Great Ball, Master Ball, enz.)
+wordt meegenomen bij het bepalen van de gemiddelde 30-dagenprijs waar de feed
+die variant ondersteunt.
+
+Upload alleen `index.html` naar GitHub Pages.
+Daarna Commit changes, wacht 1-2 minuten en gebruik Ctrl+F5.
