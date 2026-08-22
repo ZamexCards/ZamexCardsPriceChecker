@@ -21,7 +21,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v9.0 exact collector-number scanner -->
+<!-- ZamexCards Price Checker v9.1 strict identity + conservative finish detection -->
 </head>
 <body>
 <div class="app">
@@ -1422,6 +1422,7 @@ async function zcSmartRecognizeSource(source,isAuto=false){
 }
 
 let zcScanVotes=[];
+let zcLastScanSource=null;
 let zcBurstRunning=false;
 
 function zcNormVoteName(v=''){
@@ -1476,28 +1477,19 @@ function zcRegisterScanVote(v){
 }
 
 async function zcFindScannedCard(recognized){
-  const rawName=String(recognized?.name||'').trim();
   const rawNumber=String(recognized?.number||'').trim();
-  const printedTotal=String(recognized?.printedTotal||'').trim();
-  const setCode=String(recognized?.setCode||'').trim();
   if(!rawNumber)return [];
 
   let candidates=[];
 
-  // If OCR sees a set code (e.g. PFL), resolve it first.
-  if(setCode){
-    const resolved=await zcResolveSetFromCatalog(setCode);
-    if(resolved?.tcgdexId){
-      const parsed={name:rawName,setQuery:setCode,setCode:setCode.toUpperCase(),setId:resolved.tcgdexId,number:rawNumber,preferredLang:resolved.lang||null,pokemonSetId:resolved.pokemonId||''};
+  if(recognized.setCode){
+    const r=await zcResolveSetFromCatalog(recognized.setCode);
+    if(r?.tcgdexId){
+      const parsed={name:'',setQuery:recognized.setCode,setCode:String(recognized.setCode).toUpperCase(),setId:r.tcgdexId,number:rawNumber,preferredLang:r.lang||null,pokemonSetId:r.pokemonId||''};
       candidates=await zcGlobalCardSearch(parsed,'');
     }
   }
 
-  // Otherwise search globally by exact numerator.
-  if(!candidates.length){
-    const parsed=zcParseSearch(rawName,'',rawNumber);
-    candidates=await zcGlobalCardSearch(parsed,'');
-  }
   if(!candidates.length){
     const parsed=zcParseSearch('','',rawNumber);
     candidates=await zcGlobalCardSearch(parsed,'');
@@ -1505,88 +1497,48 @@ async function zcFindScannedCard(recognized){
 
   if(!candidates.length)return [];
 
-  // Build strong identity score. The scanner must NEVER select solely because the numerator matches.
-  const targetName=zcNormVoteName(rawName);
-  const targetSet=String(setCode).toUpperCase();
+  const ranked=candidates.map(c=>({c,...zcStrongIdentityScore(recognized,c)}))
+    .sort((a,b)=>b.score-a.score);
 
-  const scored=candidates.map(c=>{
-    let score=0;
-    const cNum=zcNormCardNumber(c.number||'');
-    const cName=zcNormVoteName(c.name||'');
-    const cSetCode=String(c.setCode||c.ptcgoCode||c.setId||'').toUpperCase();
-
-    if(cNum===zcNormCardNumber(rawNumber))score+=30;
-
-    // Exact printed denominator is decisive if we know it.
-    const cPrinted=String(c.printedNumber||c.number||'');
-    const slash=cPrinted.match(/(\d{1,4})\s*\/\s*(\d{1,4})/);
-    if(printedTotal){
-      if(slash && zcNormCardNumber(slash[2])===zcNormCardNumber(printedTotal))score+=55;
-      else if(c.printedTotal && zcNormCardNumber(c.printedTotal)===zcNormCardNumber(printedTotal))score+=55;
-      else score-=45;
-    }
-
-    if(targetSet){
-      if(cSetCode===targetSet)score+=50;
-      else if(zcNormText(c.set||'').includes(zcNormText(targetSet)))score+=20;
-      else score-=20;
-    }
-
-    if(targetName){
-      if(cName===targetName)score+=60;
-      else if(cName.includes(targetName)||targetName.includes(cName))score+=38;
-      else{
-        const a=new Set(targetName.split(' ').filter(Boolean));
-        const b=new Set(cName.split(' ').filter(Boolean));
-        const common=[...a].filter(x=>b.has(x)).length;
-        score+=common*12;
-      }
-    }
-
-    return {c,score};
-  }).sort((a,b)=>b.score-a.score);
-
-  // Require a strong unique match.
-  const best=scored[0],second=scored[1];
+  const best=ranked[0],second=ranked[1];
   if(!best)return [];
 
-  const minScore=(printedTotal||targetSet)?55:70;
+  // Automatic selection needs at least 2 strong identity signals.
+  // Exception: exact full collector number (numerator + denominator) is already 2 signals.
+  const fullCollector=!!recognized.printedTotal;
+  const requiredStrong=fullCollector?2:2;
   const gap=second?best.score-second.score:999;
 
-  if(best.score>=minScore && gap>=18)return [best.c];
+  if(best.strong>=requiredStrong && best.score>=80 && gap>=20)return [best.c];
 
-  // If uncertain, return top plausible candidates rather than silently selecting a wrong card.
-  return scored.filter(x=>x.score>=Math.max(30,best.score-12)).slice(0,8).map(x=>x.c);
+  // Never silently pick the first same-number card.
+  return ranked.filter(x=>x.score>=Math.max(35,best.score-10)).slice(0,8).map(x=>x.c);
 }
 
-async function zcApplyScannedCard(card){
+async function zcApplyScannedCard(card,sourceImage=null){
   if(!card)return false;
 
   currentCards=[card];
   selectedCard=card;
 
-  // Fill the Price Checker with the CONFIRMED database values, not raw OCR.
   $('q').value=card.name||'';
   $('number').value=card.number||'';
 
-  // Prefer official/regional visible code for the selected language.
   let setValue='';
   try{
     await zcLoadGlobalCatalog(false);
-    const candidates=ZC_GLOBAL_CATALOG.filter(e=>{
-      const en=zcCatalogNorm(e.name||'');
-      const cn=zcCatalogNorm(card.set||'');
-      return en&&cn&&en===cn;
-    });
+    const candidates=ZC_GLOBAL_CATALOG.filter(e=>zcCatalogNorm(e.name||'')===zcCatalogNorm(card.set||''));
     if(candidates.length){
       const langOrder=[...zcPrimarySetLanguages(),...ZC_ALL_TCGDEX_LANGS];
       candidates.sort((a,b)=>langOrder.indexOf(a.lang)-langOrder.indexOf(b.lang));
       setValue=zcSetChoiceValue(candidates[0])||'';
     }
   }catch(e){}
-
-  if(!setValue)setValue=card.setId||card.set||'';
+  if(!setValue)setValue=card.setCode||card.setId||card.set||'';
   $('set').value=setValue;
+
+  const finish=sourceImage?zcResolveScannedFinish(card,sourceImage):'Automatisch';
+  $('variant').value=[...$('variant').options].some(o=>o.value===finish)?finish:'Automatisch';
 
   renderStrip();
   renderDetail();
@@ -1601,7 +1553,7 @@ async function zcFinishRecognizedScan(recognized){
   const matches=await zcFindScannedCard(recognized);
 
   if(matches.length===1){
-    await zcApplyScannedCard(matches[0]);
+    await zcApplyScannedCard(matches[0],zcLastScanSource);
     ocrBusy=false;
     stopCamera();
     setTimeout(()=>{
@@ -1714,6 +1666,7 @@ async function scanImage(data,isAuto=false){
       img.src=data;
     });
 
+    zcLastScanSource=img;
     const p=await zcSmartRecognizeSource(img,isAuto);
 
     if(p?.number){

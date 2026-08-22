@@ -1,24 +1,20 @@
-# ZamexCards Price Checker v9.0 – exacte scanneridentiteit
+# ZamexCards Price Checker v9.1
 
-Probleem opgelost:
-Een scan van een kaart met collector number `130/094` mocht niet meer automatisch
-een willekeurige andere kaart met nummer `130` kiezen.
+Scanner-identiteit is strenger gemaakt.
 
-Nieuwe scannerlogica:
-- bewaart nu zowel teller als noemer van het kaartnummer;
-  - voorbeeld: `130/094`
-- probeert setcode onderaan de kaart mee te lezen;
-  - voorbeeld: `PFL`
-- naam + setcode + teller + noemer worden samen gebruikt voor matching
-- nummer alleen is niet meer voldoende voor automatische selectie
-- als er meerdere mogelijke kaarten zijn:
-  - géén eerste resultaat automatisch selecteren
-  - gebruiker moet eerst de juiste kaart kiezen
-- als `130/094` is gelezen maar geen exacte match kan worden bevestigd:
-  - scanner toont liever geen kaart dan een verkeerde kaart
-  - hij valt dan niet terug op een onveilige `130`-only search
+Een kaart wordt alleen automatisch gekozen als minimaal twee sterke kenmerken overeenkomen:
+- volledig kaartnummer / collector number
+- setcode
+- kaartnaam
+- numerator van kaartnummer
 
-Dit voorkomt specifiek situaties zoals:
-`Mega Charizard X ex PFL 130/094` -> ten onrechte `Water Energy Base Set 2 #130`.
+Een los nummer is nooit genoeg.
 
-Upload alleen `index.html` naar GitHub Pages.
+Uitvoering:
+- eerst gekeken welke uitvoeringen bij exact die kaart in de database bestaan;
+- één mogelijke uitvoering -> automatisch gekozen;
+- Basic / Normaal, Holo en Reverse Holo kunnen voorzichtig visueel worden herkend;
+- Poké Ball, Master Ball en stamps worden alleen automatisch gekozen als de database dit voor exact die kaart ondersteunt;
+- bij twijfel blijft Uitvoering op Automatisch.
+
+Hierdoor wordt liever geen automatische keuze gemaakt dan een verkeerde kaart of verkeerde uitvoering.
