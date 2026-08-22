@@ -1,24 +1,12 @@
-# ZamexCards Price Checker v7.1
+# ZamexCards Price Checker v7.2
 
-Wijzigingen:
-- `+ Voeg toe aan lijst` werkt weer en bewaart de kaart direct in localStorage.
-- Als dezelfde kaart/uitvoering opnieuw wordt toegevoegd, gaat het aantal met 1 omhoog.
-- + / - aantallen worden direct opgeslagen.
-- De knop `Prijsalarm` is verwijderd.
-- Promo-setcodes toegevoegd:
-  - SVP = Scarlet & Violet Black Star Promos
-  - SWSH / SWSHP = Sword & Shield Black Star Promos
-  - SMP / SM = Sun & Moon Black Star Promos
-  - XYP / XY = XY Black Star Promos
-  - BWP / BW = Black & White Promos
-  - DPP / DP = Diamond & Pearl Promos
-  - NP = Nintendo Promos
-- Bij oudere promo-series wordt een puur nummer automatisch ook geprobeerd met het tijdperk-prefix.
-  Voorbeeld: `SWSH 036` probeert ook `SWSH036`.
+Verbeteringen:
+- extra afbeeldingsfallback via de officiële Pokémon TCG image CDN;
+- ontbrekende TCGdex-afbeeldingen worden aangevuld via Pokémon TCG API;
+- eerst gemiddelde 30-dagenprijs waar beschikbaar;
+- ontbreekt die, dan wordt TCGplayer actuele marktprijs als fallback getoond;
+- fallbackprijzen in TCGplayer worden als USD getoond om geen onbetrouwbare EUR-conversie te verzinnen;
+- de kaartenlijst toont dezelfde fallbackprijs per kaart;
+- totaaltelling in EUR gebruikt alleen echte EUR 30-dagenprijzen, zodat valuta niet door elkaar worden opgeteld.
 
-Test:
-- Set: SVP
-- Kaartnummer: 036
-
-Voor GitHub Pages:
-vervang alleen `index.html`, Commit changes, wacht 1-2 minuten en gebruik Ctrl + F5.
+Special Delivery Charizard SWSH075 krijgt hierdoor een echte kaartafbeelding via images.pokemontcg.io en, waar de API marktdata levert, een actuele TCGplayer marktprijs als fallback.
