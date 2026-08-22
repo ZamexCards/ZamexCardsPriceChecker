@@ -1,17 +1,24 @@
-# ZamexCards Price Checker v7.0 – alleen gemiddeld 30 dagen
+# ZamexCards Price Checker v7.1
 
-Deze versie gebruikt dezelfde prijsaanpak als `kaartwaardezoeker`:
+Wijzigingen:
+- `+ Voeg toe aan lijst` werkt weer en bewaart de kaart direct in localStorage.
+- Als dezelfde kaart/uitvoering opnieuw wordt toegevoegd, gaat het aantal met 1 omhoog.
+- + / - aantallen worden direct opgeslagen.
+- De knop `Prijsalarm` is verwijderd.
+- Promo-setcodes toegevoegd:
+  - SVP = Scarlet & Violet Black Star Promos
+  - SWSH / SWSHP = Sword & Shield Black Star Promos
+  - SMP / SM = Sun & Moon Black Star Promos
+  - XYP / XY = XY Black Star Promos
+  - BWP / BW = Black & White Promos
+  - DPP / DP = Diamond & Pearl Promos
+  - NP = Nintendo Promos
+- Bij oudere promo-series wordt een puur nummer automatisch ook geprobeerd met het tijdperk-prefix.
+  Voorbeeld: `SWSH 036` probeert ook `SWSH036`.
 
-- kaartdata via TCGdex;
-- Europese marktfeed uit TCGdex;
-- alleen `avg30` / `avg30-holo`;
-- indien een specifieke TCGdex-uitvoering eigen pricing heeft, wordt die gebruikt;
-- geen demo-prijzen;
-- geen vanafprijs, trendprijs, PSA 10, prijsontwikkeling of fictieve verkopers.
+Test:
+- Set: SVP
+- Kaartnummer: 036
 
-De gekozen uitvoering (Standaard, Poké Ball, Great Ball, Master Ball, enz.)
-wordt meegenomen bij het bepalen van de gemiddelde 30-dagenprijs waar de feed
-die variant ondersteunt.
-
-Upload alleen `index.html` naar GitHub Pages.
-Daarna Commit changes, wacht 1-2 minuten en gebruik Ctrl+F5.
+Voor GitHub Pages:
+vervang alleen `index.html`, Commit changes, wacht 1-2 minuten en gebruik Ctrl + F5.

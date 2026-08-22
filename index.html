@@ -12,7 +12,7 @@
 @media(max-width:860px){.app{padding:12px}.topbar{align-items:flex-start}.brand img{width:72px;height:72px}.brand-title{font-size:25px}.brand-sub{font-size:15px;margin-top:4px}.top-actions{display:none}.search-grid{grid-template-columns:1fr 1fr}.search-grid .field:first-child{grid-column:1/-1}.options-grid{grid-template-columns:1fr 1fr}.workspace{grid-template-columns:1fr}.list-panel{position:static;max-height:none;order:2}.detail-grid{grid-template-columns:180px 1fr}.lower-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.search-actions{display:grid;grid-template-columns:1fr;margin-top:14px}.search-actions .btn{width:100%;min-width:0}.search-actions .btn.primary{order:1}.search-actions .btn.blue{order:2}.search-actions .btn.ghost{order:3}.app{padding:8px}.topbar{margin:4px 3px 10px}.brand{gap:9px}.brand img{width:58px;height:58px}.brand-title{font-size:20px;letter-spacing:-.2px}.brand-sub{font-size:13px;margin-top:3px}.search-panel,.detail,.list-panel{border-radius:12px;padding:11px}.search-grid,.options-grid,.grading-options{grid-template-columns:1fr}.grading-options{grid-column:auto}.search-grid .field:first-child{grid-column:auto}.detail-grid{grid-template-columns:1fr}.card-art img{max-width:220px}.card-name h1{font-size:26px}.prices-column{grid-column:auto}.chart{height:135px}.section-title{align-items:flex-start}.mini{grid-template-columns:52px minmax(0,1fr)}.mini img{width:52px;height:72px}.mini-right{grid-column:2;text-align:left;display:grid;grid-template-columns:1fr auto;align-items:center;min-width:0}.qty{justify-content:flex-start;margin-top:6px}.item-total{grid-column:1/-1}.camera-frame{aspect-ratio:2.7/4}.scanner-actions .btn{flex:1 1 46%}.result-chip{max-width:190px}}
 </style>
-<!-- ZamexCards Price Checker v7.0 TCGdex avg30 only -->
+<!-- ZamexCards Price Checker v7.1 list fix + promo support -->
 </head>
 <body>
 <div class="app">
@@ -32,7 +32,7 @@
 <form id="searchForm">
 <div class="search-grid">
   <div class="field"><label>Kaartnaam</label><input id="q" autocomplete="off" placeholder="bijv. Charizard ex"></div>
-  <div class="field"><label>Set / setcode</label><input id="set" placeholder="bijv. BRS, BLK, sv2a, s12a"></div>
+  <div class="field"><label>Set / setcode</label><input id="set" placeholder="bijv. BRS, SVP, SWSH, BLK, sv2a"></div>
   <div class="field"><label>Kaartnummer</label><input id="number" placeholder="bijv. 199 of TG14"></div>
 </div>
 <div class="options-grid">
@@ -107,8 +107,9 @@ function drawChart(canvas,values){if(!canvas)return;const ratio=devicePixelRatio
 function renderStrip(){const el=$('resultsStrip');if(currentCards.length<=1){el.innerHTML='';return}el.innerHTML=currentCards.map((c,i)=>`<button class="result-chip ${selectedCard?.id===c.id?'active':''}" onclick="selectCard(${i})">${imageTag(c)}<span><b>${esc(c.name)}</b><br>${esc(c.set)} #${esc(c.number)}</span></button>`).join('')}
 function selectCard(i){selectedCard=currentCards[i];renderStrip();renderDetail()}
 function sellerRows(c){return '<div class="placeholder" style="padding:22px 10px">Verkoperprijzen zijn nog niet beschikbaar via de huidige prijsbron.</div>'}
-function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,avg=zcAvg30ForSelection(c,selectedVariant),p={...(c.prices||zcNoPrice()),average30Days:avg},sourceNote=avg!=null?'<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: TCGdex Europese marktfeed · gemiddelde 30 dagen</div>':'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze uitvoering is nog geen gemiddelde 30-dagenprijs beschikbaar.</div>';c.prices=p;el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addFav('${esc(c.id)}')">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(selectedVariant)}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addFav('${esc(c.id)}')">+ Voeg toe aan lijst</button><button class="btn" onclick="openAlert('${esc(c.id)}')">🔔 Prijsalarm</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>Gemiddelde prijs (30 dagen)</span><strong>${euro(avg)}</strong></div>${sourceNote}</div></div></div>`}
-const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep',BLK:'sv10.5b',WHT:'sv10.5w',PBL:'PBL'};
+function renderDetail(){const c=selectedCard,el=$('detailPanel');if(!c){el.innerHTML='<div class="placeholder"><strong>Geen kaart geselecteerd.</strong></div>';return}const selectedVariant=$('variant').value,avg=zcAvg30ForSelection(c,selectedVariant),p={...(c.prices||zcNoPrice()),average30Days:avg},sourceNote=avg!=null?'<div style="font-size:12px;color:#8fb3cc;margin-top:10px">Bron: TCGdex Europese marktfeed · gemiddelde 30 dagen</div>':'<div style="font-size:12px;color:#ffcf7a;margin-top:10px">Voor deze uitvoering is nog geen gemiddelde 30-dagenprijs beschikbaar.</div>';c.prices=p;el.innerHTML=`<div class="detail-grid"><div class="card-art">${imageTag(c)}<div class="zoom">⌕ Grotere afbeelding</div></div><div><div class="card-name"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.set)} – ${esc(c.number)}</div></div><button class="btn sm" onclick="addFav('${esc(c.id)}')">♡</button></div><div class="info-box"><div class="info-row"><span>Rarity</span><strong>${esc(c.rarity||'Onbekend')}</strong></div><div class="info-row"><span>Set</span><strong>${esc(c.set)}</strong></div><div class="info-row"><span>Nummer</span><strong>${esc(c.number)}</strong></div><div class="info-row"><span>Uitvoering</span><strong>${esc(selectedVariant)}</strong></div><div class="info-row"><span>Taal</span><strong>${esc($('language').selectedOptions[0].text.replace(/^..\\s/,''))}</strong></div><div class="info-row"><span>Conditie</span><strong>${esc($('condition').value)}</strong></div><div class="info-row"><span>Graded</span><strong>${$('graded').value==='yes'?esc($('gradingCompany').value+' '+$('grade').value):'Niet graded'}</strong></div></div><div class="detail-actions"><button class="btn primary" onclick="addFav('${esc(c.id)}')">+ Voeg toe aan lijst</button></div></div><div class="prices-column"><div class="price-box"><div class="price-row primary-price"><span>Gemiddelde prijs (30 dagen)</span><strong>${euro(avg)}</strong></div>${sourceNote}</div></div></div>`}
+const SET_CODE_TO_ID={ASR:'swsh10',ASG:'swsh10',BRS:'swsh9',FST:'swsh8',EVS:'swsh7',CRE:'swsh6',BST:'swsh5',SHF:'swsh4.5',VIV:'swsh4',CPA:'swsh3.5',DAA:'swsh3',RCL:'swsh2',SSH:'swsh1',LOR:'swsh11',SIT:'swsh12',CRZ:'swsh12.5',PAL:'sv02',OBF:'sv03',MEW:'sv03.5',PAR:'sv04',PAF:'sv04.5',TEF:'sv05',TWM:'sv06',SFA:'sv06.5',SCR:'sv07',SSP:'sv08',PRE:'sv08.5',MEP:'mep',BLK:'sv10.5b',WHT:'sv10.5w',PBL:'PBL',
+SVP:'svp',SWSH:'swshp',SWSHP:'swshp',SMP:'smp',SM:'smp',XYP:'xyp',XY:'xyp',BWP:'bwp',BW:'bwp',DPP:'dpp',DP:'dpp',NP:'np'};
 function zcClean(v=''){return String(v).trim().replace(/[^a-zA-Z0-9\s'.:/-]/g,'')}
 function zcNormNumber(v=''){return zcClean(v).toUpperCase().replace(/^0+(?=\d)/,'')}
 function zcParseSearch(rawName,rawSet,rawNumber){
@@ -284,13 +285,35 @@ async function zcTcgdexCardById(setId,number){
   if(!setId||!number)return null;
   const raw=String(number).trim();
   const variants=[raw,raw.toUpperCase(),zcNormNumber(raw)];
+
   if(/^\d+$/.test(raw)){
-    variants.push(String(parseInt(raw,10)));
-    variants.push(String(parseInt(raw,10)).padStart(3,'0'))
+    const plain=String(parseInt(raw,10));
+    variants.push(plain,plain.padStart(3,'0'));
+
+    // Promo sets before Scarlet & Violet use the era prefix in their local card ID.
+    const promoPrefix={
+      swshp:'SWSH',
+      smp:'SM',
+      xyp:'XY',
+      bwp:'BW',
+      dpp:'DP',
+      np:'NP'
+    }[String(setId).toLowerCase()];
+
+    if(promoPrefix){
+      variants.push(
+        promoPrefix+plain,
+        promoPrefix+plain.padStart(2,'0'),
+        promoPrefix+plain.padStart(3,'0')
+      );
+    }
   }
+
   const tried=new Set();
   for(const n of variants){
-    if(!n||tried.has(n))continue;tried.add(n);
+    if(!n||tried.has(n))continue;
+    tried.add(n);
+
     for(const lang of zcLanguageChain()){
       try{
         const c=await zcFetchJson(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(setId+'-'+n)}`);
@@ -300,6 +323,7 @@ async function zcTcgdexCardById(setId,number){
   }
   return null
 }
+
 async function zcTcgdexSet(setId){
   for(const lang of zcLanguageChain()){
     try{
@@ -675,8 +699,8 @@ async function searchCards(e){
 }
 
 function details(){return{variant:$('variant').value,language:$('language').value,condition:$('condition').value,graded:$('graded').value==='yes',gradingCompany:$('graded').value==='yes'?$('gradingCompany').value:null,grade:$('graded').value==='yes'?$('grade').value:null}}
-function addFav(id){const c=currentCards.find(x=>x.id===id);if(!c)return;const d=details(),avg=zcAvg30ForSelection(c,d.variant),prices={...(c.prices||zcNoPrice()),average30Days:avg},listId=[c.id,d.variant,d.language,d.condition,d.graded?d.gradingCompany+d.grade:'raw'].join('|'),old=store.favs.find(x=>x.listId===listId);if(old)old.quantity=(old.quantity||1)+1;else store.favs.push({...c,prices,...d,listId,quantity:1});save();renderFavorites();showToast('Kaart toegevoegd aan lijst.')}
-function changeQty(id,delta){const f=store.favs,item=f.find(x=>(x.listId||x.id)===id);if(!item)return;item.quantity=Math.max(1,(Number(item.quantity)||1)+delta);store.favs=f;renderFavorites()}
+function addFav(id){const c=currentCards.find(x=>x.id===id)||selectedCard;if(!c){showToast('Geen kaart geselecteerd.');return}const d=details(),avg=zcAvg30ForSelection(c,d.variant),prices={...(c.prices||zcNoPrice()),average30Days:avg},listId=[c.id,d.variant,d.language,d.condition,d.graded?d.gradingCompany+d.grade:'raw'].join('|'),favs=store.favs,old=favs.find(x=>x.listId===listId);if(old)old.quantity=Math.max(1,Number(old.quantity)||1)+1;else favs.push({...c,prices,...d,listId,quantity:1});store.favs=favs;renderFavorites();showToast('Kaart toegevoegd aan lijst.')}
+function changeQty(id,delta){const favs=store.favs,item=favs.find(x=>(x.listId||x.id)===id);if(!item)return;item.quantity=Math.max(1,(Number(item.quantity)||1)+delta);store.favs=favs;renderFavorites()}
 function removeFav(id){store.favs=store.favs.filter(x=>(x.listId||x.id)!==id);renderFavorites()}
 function renderFavorites(){const f=store.favs.map(x=>({...x,quantity:Math.max(1,Number(x.quantity)||1)})),priceOf=x=>{const v=x.prices?.average30Days;return(v===null||v===undefined||!Number.isFinite(Number(v)))?null:Number(v)},totalQty=f.reduce((s,x)=>s+x.quantity,0),total=f.reduce((s,x)=>{const v=priceOf(x);return s+(v===null?0:v*x.quantity)},0);$('uniqueCount').textContent=f.length;$('favCount').textContent=totalQty;$('totalQty').textContent=totalQty;$('grandTotal').textContent=euro(total);$('eightyTotal').textContent=euro(total*.8);$('favorites').innerHTML=f.length?f.map(x=>{const unit=priceOf(x),totalItem=unit===null?null:unit*x.quantity;return `<div class="mini">${imageTag(x)}<div><h3>${esc(x.name)}</h3><div class="mini-meta">${esc(x.number)} · ${esc(x.variant||'Standard')}<br>${esc(x.language||'English')} · ${x.graded?esc((x.gradingCompany||'PSA')+' '+(x.grade||'10')):esc(x.condition||'Near Mint')}</div></div><div class="mini-right"><div><strong>${euro(unit)}</strong><small>${unit===null?'geen 30-dagenprijs':'gemiddeld 30 dagen'}</small></div><div class="qty"><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',-1)">−</button><span>${x.quantity}x</span><button class="btn sm" onclick="changeQty('${esc(x.listId||x.id)}',1)">+</button><button class="btn danger sm" onclick="removeFav('${esc(x.listId||x.id)}')">×</button></div><div class="item-total">Totaal: ${euro(totalItem)}</div></div></div>`}).join(''):'<div class="empty-list">Nog geen kaarten toegevoegd.</div>'}
 function openAlert(id){selectedAlertCard=currentCards.find(x=>x.id===id)||selectedCard;if(!selectedAlertCard)return;$('alertCardName').textContent=selectedAlertCard.name+' – huidige trendprijs '+euro(selectedAlertCard.prices?.trendPrice);$('alertModal').classList.add('open')}
