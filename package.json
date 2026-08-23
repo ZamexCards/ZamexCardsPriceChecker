@@ -1,0 +1,9 @@
+{
+  "name": "zamexcards-price-checker-ai",
+  "version": "13.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "openai": "^6.0.0"
+  }
+}
