@@ -1,4 +1,5 @@
 
+vandaag 9:46
 dit is japans
 
 chinees
@@ -34,96 +35,72 @@ deze kaart wordt ook niet herkend
 95bc3524-4795-461a-9bfb-b9dd995d4eb8.png
 deze chineze ook nie
 
-Ik kan de drie scans niet rechtstreeks vanaf mijn eigen werkomgeving uitvoeren, omdat die omgeving jouw Vercel-domein niet kan bereiken. Ik heb het geprobeerd; de verbinding strandt al op DNS voordat er een request naar jouw site kan gaan.
-
-Wat ik wél kan doen, en dat is eigenlijk nog beter voor het debuggen: ik kan een zelftestpagina maken die drie vaste kaartafbeeldingen achter elkaar naar jouw /api/scan stuurt en per test laat zien:
-
-HTTP-status
-
-scantijd
-
-ruwe serverreactie
-
-JSON-resultaat
-
-geslaagd/mislukt
-
-Dan hoef jij alleen die pagina in GitHub te zetten en één keer op “Start 3 tests” te klikken. Daarmee testen we jouw echte Vercel-backend onder precies dezelfde omstandigheden als je scanner.
-
-Ik zou daarvoor deze drie nemen:
-
-Engelse Mega Charizard
-
-Chinese Shiinotic
-
-Chinese kaart die eerder wél werkte
-
-Dan zien we meteen of het probleem kaartafhankelijk is of dat scan.js nog steeds algemeen crasht.
-
-Als je wilt, maak ik die 3-kaarten zelftestpagina nu voor je.
-
-
 b4b2e189-9c62-43ee-8068-c70b64b2fbee.png
 ab5e9236-f262-4726-9ad4-acc20e6af212.png
 9dbe6eb0-43be-4172-8f2e-aab52dc6a113.png
 2465f8c0-bb7c-4a36-9861-e8575dd721db.png
 f303cfe2-bcbd-495c-bc44-8fcbd9ce3110.png
 
-Ja, dit is nu heel nuttige testinformatie. We hebben het probleem behoorlijk scherp.
+71d8adc8-25b6-4880-9aef-b605df799807.png
+c6543992-d241-4356-aca2-b6c0b05ff0d1.png
+5b1d6184-0aab-4081-bd6b-87e94c9760d4.png
+5868d12a-cd62-4a77-bbbb-4516c9b25a07.png
 
-Van de 5 voorbeelden:
+Ja, dit maakt het probleem nu een stuk duidelijker.
 
-✅ Engels – Mega Charizard X ex: werkt, HTTP 200, ~5,65 sec.
+De fout zit niet in de kaartfoto's of in de herkenning zelf. Wat opvalt is dat de mislukte scans al na ongeveer 0,7–1,0 seconde stoppen en terugkomen met FUNCTION_INVOCATION_FAILED. Dat betekent dat de Vercel-functie crasht vóórdat OpenAI überhaupt de afbeelding kan verwerken.
 
-❌ Chinees – Shiinotic 1505/07: mislukt, HTTP 500, ~14,65 sec., AI returned no usable output.
+Dat verklaart ook waarom dezelfde Japanse Iron Valiant en Mega Charizard eerder wél correct werden herkend, maar nu meteen HTTP 500 geven. v18 heeft dus een server-side codefout geïntroduceerd. De recovery-logica krijgt niet eens de kans om te draaien.
 
-✅ Koreaans – Eevee ex 224/187: werkt, HTTP 200, ~6,08 sec.
+Ik wil daarom niet nóg een wijziging op goed geluk maken. Open in Vercel Logs, klik op één van deze nieuwe mislukte requests en stuur mij een screenshot van het onderste vak Function / Logs. Daar staat waarschijnlijk iets zoals:
 
-❌ Chinees – Cufant 230/207: mislukt, HTTP 500, ~12,08 sec., dezelfde AI returned no usable output.
+ReferenceError: ... is not defined
+TypeError: ...
+of
+SyntaxError: ...
 
-✅ Japans – Iron Valiant ex 074/187: werkt, HTTP 200, ~4,67 sec.
-
-Dus 3 van 5 werken. Belangrijker: de backend, API-key, afbeelding-upload en JSON-verwerking functioneren aantoonbaar. Het probleem concentreert zich nu op bepaalde Chinese kaarten.
-
-Ook zie ik iets belangrijks: bij de twee mislukte scans duurt het 12–15 seconden, terwijl succesvolle scans rond 5–6 seconden klaar zijn. De API wordt dus daadwerkelijk aangeroepen; dit is niet meer de oude JavaScript/Vercel-crash.
-
-Mijn volgende aanpassing zou daarom niet nóg meer aan de HTML veranderen. Ik wil scan.js zo aanpassen dat bij AI returned no usable output automatisch een tweede, vereenvoudigde vision-poging wordt gedaan, specifiek gericht op: taal → Pokémon → kaartnummer → setcode. Daarna kunnen we eventueel een derde fallback gebruiken waarbij alleen de zichtbare kaartgegevens worden uitgelezen.
-
-Dat is ook handig voor de uiteindelijke scanner: een moeilijke Chinese/Japanse/Koreaanse kaart geeft dan niet meteen een foutmelding, maar schakelt automatisch naar een robuustere herkenningsmethode.
-
-Ik zou dus nu alleen scan.js aanpakken; de HTML laten we met rust.
+Met precies die regel kan ik v18 gericht repareren en je daarna weer één volledige scan.js geven die je in zijn geheel kunt kopiëren. De screenshots die je nu stuurde tonen alleen Vercels algemene FUNCTION_INVOCATION_FAILED, niet de onderliggende JavaScript-fout.
 
 
-voer maar uit
+b90431fc-00a6-40ee-b9ec-4e5ddb74418e.png
 
-Uitgevoerd. Ik heb scan.js v18 gemaakt met een extra herstelpoging voor moeilijke kaarten, vooral voor Chinees/Japans/Koreaans.
+Ja — nu hebben we de echte fout te pakken.
 
-De nieuwe werking is:
+In je Vercel-log staat heel duidelijk:
 
-eerste scan = volledige herkenning;
+SyntaxError: Unexpected identifier 'is'
 
-als OpenAI no usable output geeft, volgt automatisch een vereenvoudigde recovery-scan;
+En belangrijker: de functie stopt al na ongeveer 147 ms en bij External APIs staat “No outgoing requests”.
 
-die tweede poging focust alleen op taal, kaartnaam/Pokémon, kaartnummer, setcode/set en basis-finish;
+Dus OpenAI wordt helemaal niet aangeroepen. scan.js kan door Node.js niet eens worden ingelezen. Er staat ergens in v18 gewone tekst in JavaScript die niet correct tussen quotes/backticks staat. Waarschijnlijk zit het woord is in zo'n prompttekst.
 
-Chinese kaarten hoeven daarbij niet eerst perfect aan een Engelstalige set gekoppeld te worden;
+Daarom werken nu óók kaarten niet meer die eerder wel werkten, zoals Iron Valiant en Mega Charizard.
 
-als de exacte set onzeker is, kan de kaart toch worden teruggegeven;
+Ik wil dit nu goed aanpakken: v18 niet verder repareren met losse regels, maar een schone scan.js maken vanaf de laatste versie die daadwerkelijk scans uitvoerde, met de recovery-functie opnieuw en syntax-veilig opgebouwd.
 
-JavaScript-syntax is gecontroleerd: OK.
-
-Download scan_v18_kopieren.txt
-
-Vervang opnieuw de volledige inhoud van api/scan.js door dit bestand en commit naar main.
-
-Daarna zou ik precies deze vijf opnieuw testen: Mega Charizard, Japanse Iron Valiant, Koreaanse Eevee, Chinese Cufant en Chinese Shiinotic. Vooral bij de twee Chinese kaarten moet v18 nu de recovery-scan proberen in plaats van meteen HTTP 500 te geven. 
+Ik kan je meteen een volledige nieuwe scan.js v19 als .txt maken die je in één keer kunt kopiëren/vervangen.
 
 
-scan_v18_kopieren.txt
+ja graag met copieren
+
+Ja. Ik heb v19 gemaakt als volledig tekstbestand om te kopiëren. Deze versie bouwt de prompts op als veilige arrays met .join("\n"), zodat we die vervelende Unexpected identifier 'is'-syntaxfout vermijden.
+
+Ik heb de JavaScript-syntax lokaal gecontroleerd: OK.
+
+Download scan_v19_kopieren.txt
+
+Vervang in GitHub weer de volledige inhoud van api/scan.js door dit bestand en commit naar main.
+
+Daarna zou ik eerst 3 kaarten testen: de Japanse Iron Valiant, de Chinese Shiinotic en Mega Charizard. Dan zien we meteen of v19 zowel de servercrash als de moeilijke Chinese kaarten beter afhandelt. 
+
+
+scan_v19_kopieren.txt
 Document
 
 
-scan_v18_kopieren.txt
+Bibliotheek
+/
+scan_v19_kopieren.txt
 
 
 import OpenAI from "openai";
@@ -203,104 +180,75 @@ const CARD_SCHEMA = {
   ]
 };
 
-const MAIN_PROMPT = `
-You are a specialist Pokémon Trading Card Game scanner.
+const MAIN_PROMPT = [
+  "You are a specialist Pokémon Trading Card Game scanner.",
+  "Analyze one Pokémon TCG card image and identify the exact base card.",
+  "",
+  "Use all visible evidence together:",
+  "- artwork",
+  "- printed card name",
+  "- original writing system",
+  "- HP",
+  "- type",
+  "- evolution stage",
+  "- collector number",
+  "- set total",
+  "- set code",
+  "- graphical set symbol",
+  "- promo or subset numbering",
+  "- copyright year",
+  "- regional card layout",
+  "- foil or stamp pattern",
+  "",
+  "Supported languages:",
+  "English, Japanese, Simplified Chinese, Traditional Chinese, Korean, Dutch, German, French, Italian, Spanish, Portuguese.",
+  "",
+  "Rules:",
+  "1. Identify the base card first.",
+  "2. Finish or foil pattern must never change the base-card identity.",
+  "3. For Japanese, Chinese and Korean cards, do not depend on Latin OCR.",
+  "4. Use original-script text, artwork, HP, numbering, set marks and layout together.",
+  "5. card_name must be the canonical English card or Pokémon name when confidently known.",
+  "6. printed_name should preserve the original printed name when readable.",
+  "7. Never invent unreadable digits.",
+  "8. Never invent a set code.",
+  "9. If the exact set cannot be determined reliably, leave set_name or set_code empty rather than guessing.",
+  "10. found must be false only when useful base-card identity cannot be established.",
+  "",
+  "Number formatting:",
+  "- card_number is the numerator only, for example 074, 224, 230, TG14.",
+  "- set_total is the denominator only, for example 187, 207, TG30.",
+  "- collector_number is the full value, for example 074/187 or 230/207.",
+  "- Do not return card_number as 224/187.",
+  "- Do not confuse rarity labels RR, SR, SAR, AR or UR with set codes.",
+  "",
+  "Finish values:",
+  "Basic / Normaal, Holo, Reverse Holo, Poké Ball, Great Ball, Master Ball, Cracked Ice Holo, Cosmos Holo, Galaxy Holo, Pokémon Together stamp, Snowflake stamp, Play! Pokémon stamp, Other, Unknown.",
+  "",
+  "If finish is uncertain, use Unknown.",
+  "Return only the structured result."
+].join("\n");
 
-Analyze ONE Pokémon TCG card image and identify the exact base card.
-
-Use:
-- artwork
-- printed card name
-- original writing system
-- HP
-- type
-- evolution stage
-- collector number
-- set total
-- set code
-- graphical set symbol
-- promo/subset numbering
-- copyright year
-- regional layout
-- foil/stamp pattern
-
-Support:
-English
-Japanese
-Simplified Chinese
-Traditional Chinese
-Korean
-Dutch
-German
-French
-Italian
-Spanish
-Portuguese
-
-Important:
-- Identify the BASE CARD first.
-- Finish must not change base-card identity.
-- For Japanese, Chinese and Korean cards, do not depend on Latin OCR.
-- Use original-script text, artwork, HP, number, set mark and layout together.
-- card_name = canonical English card/Pokémon name when confidently known.
-- printed_name = visible original-language printed name when readable.
-- Never invent unreadable digits.
-- Never invent a set code.
-- If set is uncertain, leave set_name or set_code empty rather than guessing.
-- found=false only when useful base-card identity cannot be established.
-
-Number format:
-- card_number = numerator only, e.g. 074, 224, 230, TG14.
-- set_total = denominator only, e.g. 187, 207, TG30.
-- collector_number = complete value, e.g. 074/187, 230/207.
-- Do not return card_number as 224/187.
-- Do not confuse rarity labels RR, SR, SAR, AR or UR with set codes.
-
-Finish values:
-Basic / Normaal
-Holo
-Reverse Holo
-Poké Ball
-Great Ball
-Master Ball
-Cracked Ice Holo
-Cosmos Holo
-Galaxy Holo
-Pokémon Together stamp
-Snowflake stamp
-Play! Pokémon stamp
-Other
-Unknown
-
-If finish is uncertain, use Unknown.
-
-Return only the structured result.
-`;
-
-const FALLBACK_PROMPT = `
-You are reading a difficult Pokémon TCG card image.
-
-Do a SIMPLE recovery scan. Focus only on:
-1. language
-2. Pokémon/card identity from artwork and printed name
-3. collector number
-4. set code or set symbol if visible
-5. basic finish type
-
-For Chinese cards:
-- read Simplified or Traditional Chinese script directly
-- use artwork + HP + visible collector number + printed regional code
-- do not require English text
-- if the set name is uncertain, leave it empty
-- still return the card if name/artwork and number are usable
-
-For Japanese and Korean cards, use the same principle.
-
-Do not overthink the set.
-Do not invent values.
-
-Return only the structured result.
-`;
+const FALLBACK_PROMPT = [
+  "Perform a simplified recovery scan of this Pokémon TCG card.",
+  "Focus only on the most reliable visible features:",
+  "1. language",
+  "2. card or Pokémon identity from artwork and printed name",
+  "3. collector number",
+  "4. set code or set symbol if clearly visible",
+  "5. basic finish type",
+  "",
+  "For Chinese cards:",
+  "- read Simplified or Traditional Chinese directly",
+  "- use artwork, HP, collector number and regional markings",
+  "- do not require English text",
+  "- if set name is uncertain, leave it empty",
+  "- still return the card when the base identity and number are useful",
+  "",
+  "For Japanese and Korean cards, use the same principle.",
+  "Do not invent values.",
+  "Return only the structured result."
+].join("\n");
 
 function cleanText(value) {
   return String(value ?? "").trim();
@@ -325,7 +273,11 @@ function normalizeResult(raw) {
 
   if (parts) {
     cardNumber = parts[0];
-    if (!setTotal) setTotal = parts[1];
+
+    if (!setTotal) {
+      setTotal = parts[1];
+    }
+
     collectorNumber = `${parts[0]}/${parts[1]}`;
   } else if (!collectorNumber && cardNumber && setTotal) {
     collectorNumber = `${cardNumber}/${setTotal}`;
@@ -350,7 +302,10 @@ function normalizeResult(raw) {
 
 function extractOutputText(response) {
   const direct = cleanText(response?.output_text);
-  if (direct) return direct;
+
+  if (direct) {
+    return direct;
+  }
 
   const pieces = [];
 
@@ -412,7 +367,7 @@ function parseStructuredResult(response) {
   return normalizeResult(parsed);
 }
 
-async function callVision(client, image, prompt, detail = "high", maxOutputTokens = 1000) {
+async function callVision(client, image, prompt, detail, maxOutputTokens) {
   const response = await client.responses.create({
     model: MODEL,
     input: [
@@ -426,7 +381,7 @@ async function callVision(client, image, prompt, detail = "high", maxOutputToken
           {
             type: "input_image",
             image_url: image,
-            detail
+            detail: detail
           }
         ]
       }
@@ -445,7 +400,7 @@ async function callVision(client, image, prompt, detail = "high", maxOutputToken
   return parseStructuredResult(response);
 }
 
-function jsonError(res, status, message, diagnostic = "") {
+function jsonError(res, status, message, diagnostic) {
   return res.status(status).json({
     ok: false,
     error: message,
@@ -464,28 +419,43 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST, OPTIONS");
-    return jsonError(res, 405, "Gebruik POST.");
+    return jsonError(res, 405, "Gebruik POST.", "");
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return jsonError(res, 503, "OPENAI_API_KEY ontbreekt in Vercel.");
+    return jsonError(
+      res,
+      503,
+      "OPENAI_API_KEY ontbreekt in Vercel.",
+      ""
+    );
   }
 
   const image = req.body?.image;
 
   if (typeof image !== "string" || !image.startsWith("data:image/")) {
-    return jsonError(res, 400, "Geen geldige kaartafbeelding ontvangen.");
+    return jsonError(
+      res,
+      400,
+      "Geen geldige kaartafbeelding ontvangen.",
+      ""
+    );
   }
 
-  if (image.length > 12_000_000) {
-    return jsonError(res, 413, "Afbeelding is te groot. Probeer een kleinere foto.");
+  if (image.length > 12000000) {
+    return jsonError(
+      res,
+      413,
+      "Afbeelding is te groot. Probeer een kleinere foto.",
+      ""
+    );
   }
 
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
   });
 
-  let firstError = null;
+  let primaryError = null;
 
   try {
     const result = await callVision(
@@ -498,12 +468,16 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result);
   } catch (error) {
-    firstError = error;
-    console.warn("Primary scan failed:", error?.message || error);
+    primaryError = error;
+
+    console.warn(
+      "Primary scan failed:",
+      error?.message || String(error)
+    );
   }
 
   try {
-    const fallbackResult = await callVision(
+    const fallback = await callVision(
       client,
       image,
       FALLBACK_PROMPT,
@@ -511,28 +485,32 @@ export default async function handler(req, res) {
       650
     );
 
-    fallbackResult.notes = cleanText(
-      `${fallbackResult.notes} | Recovery scan used`
+    fallback.notes = cleanText(
+      `${fallback.notes} | Recovery scan used`
     ).slice(0, 900);
 
-    return res.status(200).json(fallbackResult);
+    return res.status(200).json(fallback);
   } catch (fallbackError) {
     console.error("Fallback scan failed:", {
-      primary: firstError?.message,
+      primary: primaryError?.message,
       fallback: fallbackError?.message,
       status: fallbackError?.status,
       code: fallbackError?.code,
       type: fallbackError?.type
     });
 
-    const status = Number(fallbackError?.status || firstError?.status || 0);
+    const status = Number(
+      fallbackError?.status ||
+      primaryError?.status ||
+      0
+    );
 
     if (status === 401) {
       return jsonError(
         res,
         401,
         "OpenAI API-sleutel is ongeldig.",
-        fallbackError?.message || firstError?.message
+        fallbackError?.message || primaryError?.message || ""
       );
     }
 
@@ -541,7 +519,7 @@ export default async function handler(req, res) {
         res,
         429,
         "OpenAI API-limiet of tegoed bereikt.",
-        fallbackError?.message || firstError?.message
+        fallbackError?.message || primaryError?.message || ""
       );
     }
 
@@ -549,7 +527,7 @@ export default async function handler(req, res) {
       res,
       500,
       "AI kaartscan mislukt. Probeer opnieuw.",
-      `Primary: ${firstError?.message || "unknown"} | Fallback: ${fallbackError?.message || "unknown"}`
+      `Primary: ${primaryError?.message || "unknown"} | Fallback: ${fallbackError?.message || "unknown"}`
     );
   }
 }
