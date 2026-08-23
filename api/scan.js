@@ -9,90 +9,81 @@ b90431fc-00a6-40ee-b9ec-4e5ddb74418e.png
 11171129-67b9-4e46-a8c4-63bdf2a357b5.png
 we zjn nu hier al 2 uur mee aan het rommelen, kan je iets bedenken waar we dit nu echt mee op kunnen lossen ?
 
-Zeker. Ik heb nu beide varianten gemaakt:
-
-Aanbevolen: ZIP-bestand — uitpakken en scan.js rechtstreeks uploaden naar de map api in GitHub:
-
-Download ZamexCards-scan-js.zip
-
-Of als je liever de volledige tekst kopieert:
-
-Download scan-js-om-te-kopieren.txt
-
-Ik raad de ZIP-versie aan. Daarmee voorkomen we dat er tijdens kopiëren opnieuw vreemde tekst in scan.js terechtkomt.
-
-Na het uploaden zeg je “geupload”; dan controleer ik eerst het bestand in GitHub voordat we opnieuw gaan testen. 
-
-
-scan-js-om-te-kopieren.txt
-Document
-
-
-ik heb het ebstand voa de zip vervangen, als het goed is is het gelukt
-
-Ja, dit ziet er nu goed uit. 👍
-
-Ik heb rechtstreeks in jouw GitHub-repository gekeken. De nieuwe api/scan.js staat daadwerkelijk op main en begint nu correct met:
-
-import OpenAI from "openai";
-
-export const config = {
-  maxDuration: 30
-};
-Ik heb ook verderop in het bestand gecontroleerd. De callVision()-functie, JSON-verwerking en de OpenAI-aanroep staan nu als echte JavaScript-code in het bestand. De chattekst die het bestand eerder kapotmaakte, staat daar niet meer tussen.
-
-Dus nu pas weer testen.
-
-Pak als eerste precies de Chinese Shiinotic die steeds fout ging en druk één keer op AI scan uitvoeren.
-
-Als die nog fout gaat, stuur je alleen het resultaat/screenshot. Nu weten we namelijk zeker dat we niet meer tegen die kapotte scan.js aan het debuggen zijn.
-
-
 8f3eeade-37d8-4011-b718-38bbfc147f60.png
 ik begin het zat te worden. 
 
-Ja. We hebben nu eindelijk genoeg informatie om niet meer te gokken.
+Mooi. 👍
 
-De fout AI returned no usable output bij de moeilijke Chinese kaart past heel goed bij een output-tokenprobleem van het reasoning-model: bij de Responses API telt max_output_tokens óók de interne reasoning-tokens mee. Als die limiet op is, kan een response incomplete worden zonder zichtbare tekst. OpenAI documenteert dit expliciet; max_output_tokens omvat zowel zichtbare output als reasoning-tokens. 
+Test nu alleen de Chinese Shiinotic die steeds problemen gaf.
 
-Dat verklaart ook waarom:
+Er zijn nu twee interessante uitkomsten:
 
-eenvoudige kaarten rond 5–6 sec wel werken;
+HTTP 200 / Klaar → dan hebben we het fundamentele probleem waarschijnlijk opgelost.
 
-moeilijkere Chinese kaarten langer nadenken;
+HTTP 500 → stuur mij alleen een screenshot van JSON-resultaat. In v20 hoort bij diagnostic nu veel duidelijkere informatie te staan, bijvoorbeeld status, reason en reasoning_tokens.
 
-en daarna soms helemaal geen output_text teruggeven.
+Daarmee kunnen we bij een fout precies zien waarom OpenAI geen resultaat terugstuurt, in plaats van opnieuw onderdelen willekeurig te veranderen.
 
-Ik heb daarom v20 gemaakt met drie gerichte wijzigingen:
+Ik ben vooral benieuwd wat de Shiinotic nu doet.
 
-reasoning.effort = "minimal" zodat de scanner veel minder interne tokens verbruikt;
 
-max_output_tokens verhoogd van 1000 naar 4000;
+a11db0bb-32fb-4fbb-bf14-c69756632027.png
 
-één enkele scan-call in plaats van twee achter elkaar, zodat we niet tegen de Vercel-limiet aanlopen.
+Ja, dit is belangrijk: dit is nu weer een ánder probleem dan de AI-herkenning.
+
+De fout ontstaat al na 0,82 seconde en de server geeft:
+
+FUNCTION_INVOCATION_FAILED
+
+Dat betekent dat /api/scan crasht voordat de aanvraag überhaupt goed bij OpenAI komt. Daarom zien we ook geen nieuwe diagnostic. Dit is dus niet omdat de Chinese kaart moeilijk te herkennen is.
+
+Bovendien hadden we eerder precies deze aanwijzing in Vercel:
+
+SyntaxError: Unexpected identifier 'is'
+
+En dat verklaart waarom het soms wél werkte en na een wijziging ineens alle kaarten weer 500 kunnen geven: er staat waarschijnlijk opnieuw een JavaScript-syntaxfout in api/scan.js.
+
+Ik wil nu stoppen met kleine reparaties. De beste aanpak is om api/scan.js helemaal opnieuw schoon op te bouwen, zonder code van de huidige versies over te nemen. Dan maken we één eenvoudige, stabiele versie die eerst maar één ding doet:
+
+foto → OpenAI Vision → kaartgegevens → JSON
+
+Nog géén prijzen, database, fallback-constructies of andere extra's.
+
+Daarna testen we dezelfde vier kaarten waarmee we inmiddels weten wat er moet gebeuren: Mega Charizard X ex, Koreaanse Eevee ex, Japanse Iron Valiant ex en deze Chinese Shiinotic. Pas als die vier betrouwbaar werken, bouwen we verder.
+
+Ik zou dus nu niet nogmaals dezelfde code proberen te repareren. We hebben daar inmiddels genoeg tijd aan besteed.
+
+Als je wilt, maak ik nu een volledig nieuwe scan.js vanaf nul, en ik geef hem je als één compleet tekstbestand zodat je alleen maar alles selecteren → verwijderen → plakken → opslaan hoeft te doen.
+
+
+ok
+
+Ik heb nu een echt schone scanner-backend vanaf nul gemaakt.
+
+Belangrijk verschil: deze versie gebruikt GPT-4.1 mini, een non-reasoning model met image input en Structured Outputs. Dat vermijdt precies het probleem waarbij reasoning-modellen tokens kunnen “opeten” zonder zichtbare output. OpenAI ondersteunt bij GPT-4.1 mini zowel image input als Structured Outputs. 
+
+Ook heb ik jouw package.json gecontroleerd: je gebruikt openai ^6.0.0 en ESM, dus deze code past bij jouw projectopzet.
 
 De JavaScript-syntax is gecontroleerd: OK.
 
-Gebruik bij voorkeur weer de ZIP-methode, omdat die bij jou nu bewezen goed werkt:
+Aanbevolen ZIP:
+Download ZamexCards clean scanner
 
-Download ZamexCards scan v20 ZIP
+Of als tekstbestand:
+Download scan_clean_v1_kopieren.txt
 
-Of als tekst:
+Vervang alleen api/scan.js door de scan.js uit de ZIP.
 
-Download scan_v20_kopieren.txt
-
-Vervang alleen api/scan.js met de scan.js uit de ZIP.
-
-Daarna wil ik niet weer vijf kaarten laten testen. Alleen die Chinese Shiinotic eerst. Als deze v20 nog faalt, geeft de diagnostic voortaan ook status, reason en het aantal reasoning_tokens. Dan weten we exact of mijn diagnose klopt, in plaats van weer een ronde op goed geluk te doen. 
+Daarna testen we één kaart eerst: de Chinese Shiinotic. Als deze nog fout gaat, krijgen we nu een normale JSON-foutmelding uit deze veel simpelere backend, in plaats van weer een hele keten van recovery- en reasoningproblemen. 
 
 
-scan_v20_kopieren.txt
+scan_clean_v1_kopieren.txt
 Document
 
 
 Bibliotheek
 /
-scan_v20_kopieren.txt
+scan_clean_v1_kopieren.txt
 
 
 import OpenAI from "openai";
@@ -101,58 +92,69 @@ export const config = {
   maxDuration: 30
 };
 
-const MODEL = process.env.SCANNER_MODEL || "gpt-5.6-luna";
+const MODEL = process.env.SCANNER_MODEL || "gpt-4.1-mini";
 
-const LANGUAGES = [
-  "English",
-  "Japanese",
-  "Chinese",
-  "Simplified Chinese",
-  "Traditional Chinese",
-  "Korean",
-  "Dutch",
-  "German",
-  "French",
-  "Italian",
-  "Spanish",
-  "Portuguese",
-  "Other",
-  "Unknown"
-];
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
-const FINISHES = [
-  "Basic / Normaal",
-  "Holo",
-  "Reverse Holo",
-  "Poké Ball",
-  "Great Ball",
-  "Master Ball",
-  "Cracked Ice Holo",
-  "Cosmos Holo",
-  "Galaxy Holo",
-  "Pokémon Together stamp",
-  "Snowflake stamp",
-  "Play! Pokémon stamp",
-  "Other",
-  "Unknown"
-];
-
-const CARD_SCHEMA = {
+const SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
     found: { type: "boolean" },
     card_name: { type: "string" },
     printed_name: { type: "string" },
-    language: { type: "string", enum: LANGUAGES },
+    language: {
+      type: "string",
+      enum: [
+        "English",
+        "Japanese",
+        "Simplified Chinese",
+        "Traditional Chinese",
+        "Korean",
+        "Dutch",
+        "German",
+        "French",
+        "Italian",
+        "Spanish",
+        "Portuguese",
+        "Other",
+        "Unknown"
+      ]
+    },
     set_name: { type: "string" },
     set_code: { type: "string" },
     card_number: { type: "string" },
     set_total: { type: "string" },
     collector_number: { type: "string" },
-    finish: { type: "string", enum: FINISHES },
-    identity_confidence: { type: "number", minimum: 0, maximum: 1 },
-    finish_confidence: { type: "number", minimum: 0, maximum: 1 },
+    finish: {
+      type: "string",
+      enum: [
+        "Basic / Normaal",
+        "Holo",
+        "Reverse Holo",
+        "Poké Ball",
+        "Great Ball",
+        "Master Ball",
+        "Cracked Ice Holo",
+        "Cosmos Holo",
+        "Galaxy Holo",
+        "Stamped",
+        "Other",
+        "Unknown"
+      ]
+    },
+    identity_confidence: {
+      type: "number",
+      minimum: 0,
+      maximum: 1
+    },
+    finish_confidence: {
+      type: "number",
+      minimum: 0,
+      maximum: 1
+    },
     notes: { type: "string" }
   },
   required: [
@@ -172,180 +174,179 @@ const CARD_SCHEMA = {
   ]
 };
 
-const PROMPT = [
-  "Identify exactly one Pokémon TCG card from the image.",
-  "Work from the whole card, not OCR alone.",
-  "Use artwork, printed name, HP, type, collector number, set total, set code or symbol, copyright/layout, language and foil pattern.",
-  "Support English, Japanese, Simplified Chinese, Traditional Chinese, Korean, Dutch, German, French, Italian, Spanish and Portuguese.",
+const SYSTEM_PROMPT = [
+  "You identify Pokemon Trading Card Game cards from one photo.",
+  "Return JSON that matches the provided schema.",
+  "Use the whole card image, not OCR alone.",
+  "Support English, Japanese, Korean, Simplified Chinese and Traditional Chinese.",
   "",
-  "Identity rules:",
-  "- Identify the base card first.",
-  "- For Japanese, Chinese and Korean, read the original script and use artwork + HP + numbering + regional markings together.",
-  "- card_name is the canonical English name when confidently known.",
-  "- printed_name preserves the visible original-language name when readable.",
-  "- Never invent unreadable digits or a set code.",
-  "- If the exact set name/code is uncertain, leave that field empty but still identify the card when the card identity and collector number are usable.",
+  "Identification priority:",
+  "1. printed card name",
+  "2. artwork",
+  "3. collector number and set total",
+  "4. set code or set symbol",
+  "5. HP, type and card layout",
   "",
-  "Number rules:",
-  "- card_number is numerator only, such as 074, 224, 230 or TG14.",
-  "- set_total is denominator only, such as 187, 207 or TG30.",
-  "- collector_number is the complete printed number such as 074/187.",
-  "- Do not confuse RR, SR, SAR, AR or UR rarity labels with set codes.",
-  "",
-  "Finish rules:",
-  "- Determine finish only after base-card identity.",
-  "- Poké Ball, Great Ball and Master Ball patterns are variants of the same base card.",
-  "- If finish is uncertain use Unknown.",
-  "",
-  "Return only the structured result."
+  "Important rules:",
+  "- Identify the base card before identifying the finish.",
+  "- For Asian cards, read the original script and combine it with artwork and collector number.",
+  "- card_name must be the canonical English card or Pokemon name when confidently known.",
+  "- printed_name should preserve the visible printed name.",
+  "- card_number is only the part before the slash.",
+  "- set_total is only the part after the slash.",
+  "- collector_number is the complete visible value such as 074/187.",
+  "- Do not confuse RR, SR, SAR, AR, UR or other rarity marks with the set code.",
+  "- Never invent a set code or unreadable number.",
+  "- If set_name or set_code is uncertain, use an empty string instead of guessing.",
+  "- If the base card is identifiable but finish is uncertain, use Unknown for finish.",
+  "- Poké Ball, Great Ball and Master Ball patterns are finishes/variants of the same base card.",
+  "- found should be true when the base card can be identified with useful confidence."
 ].join("\n");
 
-function cleanText(value) {
+function clean(value) {
   return String(value ?? "").trim();
 }
 
-function clamp01(value) {
-  const n = Number(value || 0);
-  return Math.max(0, Math.min(1, n));
-}
+function normalizeNumberFields(result) {
+  let cardNumber = clean(result.card_number);
+  let setTotal = clean(result.set_total);
+  let collectorNumber = clean(result.collector_number);
 
-function splitCollector(value) {
-  const m = cleanText(value).match(/^([^/]+)\/([^/]+)$/);
-  return m ? [m[1].trim(), m[2].trim()] : null;
-}
+  const full = collectorNumber || cardNumber;
+  const match = full.match(/^([^/]+)\/([^/]+)$/);
 
-function normalizeResult(raw) {
-  let cardNumber = cleanText(raw?.card_number);
-  let setTotal = cleanText(raw?.set_total);
-  let collectorNumber = cleanText(raw?.collector_number);
-
-  const parts = splitCollector(collectorNumber) || splitCollector(cardNumber);
-
-  if (parts) {
-    cardNumber = parts[0];
-    if (!setTotal) setTotal = parts[1];
-    collectorNumber = `${parts[0]}/${parts[1]}`;
+  if (match) {
+    cardNumber = match[1].trim();
+    if (!setTotal) {
+      setTotal = match[2].trim();
+    }
+    collectorNumber = `${match[1].trim()}/${match[2].trim()}`;
   } else if (!collectorNumber && cardNumber && setTotal) {
     collectorNumber = `${cardNumber}/${setTotal}`;
   }
 
   return {
-    found: Boolean(raw?.found),
-    card_name: cleanText(raw?.card_name),
-    printed_name: cleanText(raw?.printed_name),
-    language: LANGUAGES.includes(raw?.language) ? raw.language : "Unknown",
-    set_name: cleanText(raw?.set_name),
-    set_code: cleanText(raw?.set_code),
+    ...result,
     card_number: cardNumber,
     set_total: setTotal,
-    collector_number: collectorNumber,
-    finish: FINISHES.includes(raw?.finish) ? raw.finish : "Unknown",
-    identity_confidence: clamp01(raw?.identity_confidence),
-    finish_confidence: clamp01(raw?.finish_confidence),
-    notes: cleanText(raw?.notes).slice(0, 900)
+    collector_number: collectorNumber
   };
 }
 
-function parseOutput(response) {
-  const text = cleanText(response?.output_text);
-
-  if (!text) {
-    const reason = response?.incomplete_details?.reason || "";
-    const reasoningTokens =
-      response?.usage?.output_tokens_details?.reasoning_tokens ?? "";
-    const status = response?.status || "unknown";
-
-    throw new Error(
-      `No visible output; status=${status}; reason=${reason || "none"}; reasoning_tokens=${reasoningTokens}`
-    );
-  }
-
-  return normalizeResult(JSON.parse(text));
-}
-
-function jsonError(res, status, message, diagnostic = "") {
+function sendError(res, status, message, diagnostic = "") {
   return res.status(status).json({
     ok: false,
     error: message,
-    diagnostic: cleanText(diagnostic).slice(0, 600)
+    diagnostic: clean(diagnostic).slice(0, 800)
   });
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
-
-  if (req.method === "OPTIONS") {
-    res.setHeader("Allow", "POST, OPTIONS");
-    return res.status(204).end();
-  }
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
 
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST, OPTIONS");
-    return jsonError(res, 405, "Gebruik POST.");
+    res.setHeader("Allow", "POST");
+    return sendError(res, 405, "Gebruik POST.");
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return jsonError(res, 503, "OPENAI_API_KEY ontbreekt in Vercel.");
+    return sendError(
+      res,
+      503,
+      "OPENAI_API_KEY ontbreekt in Vercel."
+    );
   }
 
   const image = req.body?.image;
 
   if (typeof image !== "string" || !image.startsWith("data:image/")) {
-    return jsonError(res, 400, "Geen geldige kaartafbeelding ontvangen.");
+    return sendError(
+      res,
+      400,
+      "Geen geldige kaartafbeelding ontvangen."
+    );
   }
 
   if (image.length > 12000000) {
-    return jsonError(res, 413, "Afbeelding is te groot. Probeer een kleinere foto.");
+    return sendError(
+      res,
+      413,
+      "Afbeelding is te groot. Gebruik een kleinere foto."
+    );
   }
 
   try {
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-
-    const response = await client.responses.create({
+    const completion = await client.chat.completions.create({
       model: MODEL,
 
-      reasoning: {
-        effort: "minimal"
-      },
-
-      input: [
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT
+        },
         {
           role: "user",
           content: [
             {
-              type: "input_text",
-              text: PROMPT
+              type: "text",
+              text: "Identify this Pokemon TCG card and return the structured JSON result."
             },
             {
-              type: "input_image",
-              image_url: image,
-              detail: "high"
+              type: "image_url",
+              image_url: {
+                url: image,
+                detail: "high"
+              }
             }
           ]
         }
       ],
 
-      text: {
-        format: {
-          type: "json_schema",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "pokemon_card_scan",
           strict: true,
-          schema: CARD_SCHEMA
+          schema: SCHEMA
         }
       },
 
-      max_output_tokens: 4000
+      max_tokens: 1200,
+      temperature: 0
     });
 
-    const result = parseOutput(response);
+    const message = completion?.choices?.[0]?.message;
+    const content = clean(message?.content);
+
+    if (!content) {
+      return sendError(
+        res,
+        502,
+        "AI gaf geen kaartresultaat terug.",
+        `finish_reason=${completion?.choices?.[0]?.finish_reason || "unknown"}`
+      );
+    }
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      return sendError(
+        res,
+        502,
+        "AI-resultaat kon niet worden gelezen.",
+        error?.message || "JSON parse error"
+      );
+    }
+
+    const result = normalizeNumberFields(parsed);
 
     return res.status(200).json(result);
 
   } catch (error) {
-    console.error("ZamexCards scan v20 error:", {
+    console.error("ZamexCards clean scanner error:", {
       name: error?.name,
       message: error?.message,
       status: error?.status,
@@ -356,7 +357,7 @@ export default async function handler(req, res) {
     const status = Number(error?.status || 0);
 
     if (status === 401) {
-      return jsonError(
+      return sendError(
         res,
         401,
         "OpenAI API-sleutel is ongeldig.",
@@ -365,7 +366,7 @@ export default async function handler(req, res) {
     }
 
     if (status === 429) {
-      return jsonError(
+      return sendError(
         res,
         429,
         "OpenAI API-limiet of tegoed bereikt.",
@@ -373,11 +374,11 @@ export default async function handler(req, res) {
       );
     }
 
-    return jsonError(
+    return sendError(
       res,
       500,
-      "AI kaartscan mislukt. Probeer opnieuw.",
-      error?.message
+      "AI kaartscan mislukt.",
+      error?.message || String(error)
     );
   }
 }
