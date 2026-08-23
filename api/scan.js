@@ -1,4 +1,153 @@
+
+dit is japans
+
+chinees
+koriaans
+
+7c82d8f3-ffa0-4b42-b59c-971523082077.png
+
+82eea0b3-25e1-468a-9ea3-36d0ea227a1a.png
+
+7af0aee2-ec28-496c-b33f-da33e0df89a2.png
+kan dit aan mij liggen?
+
+19b67279-c929-4052-a8a0-cf075a8f3eb9.png
+deze chineze kaart werkt
+
+Ja! 🎉 Deze Chinese kaart werkt nu goed. Dit is een flinke verbetering ten opzichte van de vorige test.
+
+De scanner haalt nu netjes uit de foto:
+
+Pokémon: Cufant ✅
+
+Gedrukte Chinese naam: 铜象 ✅
+
+Taal: Simplified Chinese ✅
+
+Set: Black Bolt ✅
+
+Setcode: CBB6C ✅
+
+Kaartnummer: 230 ✅
+
+Set totaal: 207 ✅
+
+Volledig nummer: 230/207 ✅
+
+Variant: Reverse Holo ✅
+
+Identificatiezekerheid: 98% ✅
+
+Finish-zekerheid: 78%
+
+En belangrijk: hij herkent dus ook een Secret/over-number kaart correct. 230/207 is volledig logisch; kaartnummer 230 ligt boven het reguliere settotaal van 207.
+
+Wat ik nu zou testen
+Voordat we deze AI-scanner in de echte ZamexCards Price Checker gaan bouwen, zou ik nog vier kaarten testen:
+
+🇯🇵 Japanse kaart – liefst eentje waarbij setcode en kaartnummer duidelijk zichtbaar zijn.
+
+🇰🇷 Koreaanse kaart.
+
+🇬🇧 Engelse kaart – bijvoorbeeld een normale moderne kaart.
+
+✨ Moeilijke variant – bijvoorbeeld Poké Ball, Master Ball, Reverse Holo, SAR/AR of andere speciale finish.
+
+Als die vier goed gaan, hebben we voldoende bewijs dat de herkenningsbasis betrouwbaar werkt.
+
+Daarna kunnen we de interessante stap zetten: scanner → gevonden kaart → kaartafbeelding → actuele prijsgegevens → toevoegen aan kaartenlijst → totaal → 80%-waarde.
+
+Dat maakt van deze testscanner daadwerkelijk de ZamexCards-kaartscanner die we oorspronkelijk voor ogen hadden.
+
+
+41daf288-6035-439c-b2e6-4a4031bfc72c.png
+maar deze chineze kaart niet
+
+Ja, precies. Deze tweede Chinese kaart laat zien dat het probleem nog niet de herkenning zelf hoeft te zijn, maar de foutafhandeling van scan.js.
+
+De belangrijke melding is:
+
+SyntaxError: Unexpected token 'A', "An error o"... is not valid JSON
+
+Dat betekent dat /api/scan bij deze kaart géén JSON terugstuurt. Waarschijnlijk komt er vanuit Vercel/OpenAI een gewone tekstmelding terug die begint met “An error occurred…”. Daarna probeert scanner-test.html die tekst als JSON te lezen en ontstaat deze fout.
+
+Bij de vorige Chinese Cufant kreeg de scanner wél een geldig antwoord. Deze kaart is dus een goede testcase: hij is duidelijk genoeg, met onderaan zichtbaar CBB6C en 1505/07, maar ergens tijdens de API-aanroep gaat het mis.
+
+Dit moeten we nu oplossen
+Ik zou niet opnieuw alleen de AI-prompt aanpassen. We moeten scan.js robuuster maken zodat:
+
+OpenAI altijd gestructureerde JSON moet teruggeven.
+
+Chinese, Japanse, Koreaanse en Engelse kaarten ondersteund blijven.
+
+Een onduidelijke setcode/kaartnummer niet de hele scan laat mislukken.
+
+Als OpenAI een fout geeft, scan.js die fout opvangt.
+
+/api/scan altijd JSON naar de browser terugstuurt, óók bij een fout.
+
+We tijdelijk de echte foutmelding zichtbaar maken, zodat we niet meer alleen "AI kaartscan mislukt" of "An error occurred" zien.
+
+Daarmee lossen we eigenlijk twee problemen tegelijk op: betrouwbaarder scannen én fatsoenlijke foutdiagnose.
+
+Ik kan nu een volledige nieuwe scan.js voor je maken die je net als de vorige keer in GitHub volledig kunt selecteren, verwijderen en vervangen. Dan hoef je zelf niets aan de code te wijzigen.
+
+
+ja maak maar.
+
+het is wel gek dat hij de ene chineze kaart wel zien en de andere niet
+
+Ja, dat verschil is op zichzelf goed te verklaren: de ene Chinese kaart kon in één AI-poging volledig worden herkend, terwijl de andere kaart extra verificatie nodig had. Onze vorige scan.js deed dan een tweede AI-call. Op Vercel zit jouw functie rond een maximumduur van 30 seconden; daardoor kan zo’n moeilijke kaart nét over de limiet gaan en krijg je die gewone fouttekst “An error occurred…” in plaats van JSON.
+
+Ik heb daarom een nieuwe v16 gemaakt die dit anders doet:
+
+maar één AI-call per scan;
+
+dus veel kleinere kans op Vercel-timeout;
+
+Engels, Japans, Chinees en Koreaans blijven ondersteund;
+
+kaartnummer en settotaal worden automatisch netjes gesplitst;
+
+finish/variant blijft apart van de kaartidentiteit;
+
+/api/scan probeert altijd JSON terug te sturen bij normale applicatiefouten;
+
+JavaScript-syntax is gecontroleerd: OK.
+
+OpenAI ondersteunt de Responses API met multimodale input en Structured Outputs, dus die basis blijft hetzelfde. 
+
+Omdat downloaden eerder bij jou lastig ging, kun je het bestand op twee manieren gebruiken:
+
+Download scan.js v16
+
+of als tekstbestand:
+
+Download scan_v16_kopieren.txt
+
+Vervang in GitHub weer de volledige inhoud van api/scan.js door de inhoud van v16 en commit naar main.
+
+Daarna zou ik precies die Chinese Shiinotic-kaart opnieuw testen. Die is nu onze beste stresstest: als die met v16 gewoon resultaat geeft, hebben we zeer waarschijnlijk het timeoutprobleem opgelost. 
+
+
+scan_v16.js
+Code
+
+
+scan_v16_kopieren.txt
+Document
+
+
+Bibliotheek
+/
+scan_v16_kopieren.txt
+
+
 import OpenAI from "openai";
+
+export const config = {
+  maxDuration: 30
+};
 
 const MODEL = process.env.SCANNER_MODEL || "gpt-5.6-luna";
 
@@ -43,29 +192,15 @@ const CARD_SCHEMA = {
     found: { type: "boolean" },
     card_name: { type: "string" },
     printed_name: { type: "string" },
-    language: {
-      type: "string",
-      enum: LANGUAGES
-    },
+    language: { type: "string", enum: LANGUAGES },
     set_name: { type: "string" },
     set_code: { type: "string" },
     card_number: { type: "string" },
     set_total: { type: "string" },
     collector_number: { type: "string" },
-    finish: {
-      type: "string",
-      enum: FINISHES
-    },
-    identity_confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1
-    },
-    finish_confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1
-    },
+    finish: { type: "string", enum: FINISHES },
+    identity_confidence: { type: "number", minimum: 0, maximum: 1 },
+    finish_confidence: { type: "number", minimum: 0, maximum: 1 },
     notes: { type: "string" }
   },
   required: [
@@ -85,206 +220,123 @@ const CARD_SCHEMA = {
   ]
 };
 
-const BASE_PROMPT = `
-You are a specialist Pokémon Trading Card Game card scanner.
+const PROMPT = `
+You are a high-accuracy Pokémon Trading Card Game scanner.
 
-Analyze the COMPLETE card image and identify the BASE CARD first.
+Your job is to identify ONE physical Pokémon TCG card from the supplied image.
 
-Support:
-- English
-- Japanese
-- Simplified Chinese
-- Traditional Chinese
-- Korean
-- Dutch
-- German
-- French
-- Italian
-- Spanish
-- Portuguese
+IMPORTANT: perform the entire identification in ONE pass.
 
-Support:
-- old Pokémon cards
-- modern Pokémon cards
-- promos
-- Black Star Promos
-- Trainer Gallery
-- Galarian Gallery
-- Illustration Rare
-- Special Illustration Rare
-- Japanese regional releases
-- Chinese regional releases
-- Korean regional releases
-- stamped cards
-- special foil variants
-
-Use ALL visible information together:
+Use all visible evidence together:
 - artwork
 - card layout
-- printed name and writing system
+- printed Pokémon/card name
+- original writing system
 - HP
-- type
+- Pokémon type
 - evolution stage
-- set code
-- graphical set symbol
 - collector number
-- printed set total
-- promo/gallery/subset numbering
-- copyright / era markings
-- foil / stamp / Poké Ball / Great Ball / Master Ball pattern
+- set total
+- printed set code
+- graphical set symbol
+- promo / gallery / subset numbering
+- copyright year / regional layout
+- foil pattern
+- Poké Ball / Great Ball / Master Ball pattern
+- stamps
 
-IDENTITY RULES
+SUPPORTED LANGUAGES:
+English
+Japanese
+Simplified Chinese
+Traditional Chinese
+Korean
+Dutch
+German
+French
+Italian
+Spanish
+Portuguese
 
-1.
-Identify the BASE CARD independently from its finish.
+SUPPORTED RELEASES:
+old cards
+modern cards
+promos
+Black Star Promos
+Trainer Gallery
+Galarian Gallery
+special subsets
+regional Japanese releases
+regional Chinese releases
+regional Korean releases
+special foil/stamped variants
 
-2.
-Finish must NEVER change which card it is.
+BASE-CARD IDENTIFICATION RULES:
 
-3.
-Read collector numbers exactly where possible.
+1. Identify the BASE CARD first.
+2. The foil/finish must NEVER change the base-card identity.
+3. Use artwork + name + collector number + set markings together.
+4. Do not depend on Latin OCR for Japanese, Chinese or Korean cards.
+5. For Asian cards, use original-script text, artwork, HP, collector number, set marks and layout together.
+6. card_name should be the canonical English Pokémon/card name when confidently known.
+7. printed_name should preserve the visible original-script name when readable.
+8. Never invent unreadable collector-number digits.
+9. Never invent a set code.
+10. If set_name or set_code cannot be determined reliably, leave that field empty, but still return the correctly identified card whenever possible.
+11. found=false only when the base-card identity is genuinely unusable.
+
+NUMBER RULES:
+
+card_number must contain ONLY the numerator / first part.
 
 Examples:
-012/086
-130/094
-TG14/TG30
-GG21/GG70
-SWSH075
-SVP036
-
-4.
-card_number must contain ONLY the first part.
-
-Examples:
+012
 074
 224
-012
-130
+230
 TG14
 GG21
 SWSH075
+SVP036
 
-5.
-set_total must contain ONLY the second part when printed.
+set_total must contain ONLY the denominator / second part when printed.
 
 Examples:
-187
 086
-094
+187
+207
 TG30
 GG70
 
-6.
-collector_number should contain the complete printed value.
+collector_number must contain the complete printed value.
 
 Examples:
+012/086
 074/187
 224/187
-012/086
+230/207
 
-7.
-Read printed set codes when present.
+If the image visibly shows 1505/07, preserve exactly what is visibly printed unless you are certain that typography means a different official collector-number format.
 
-Examples:
-BLK
-PFL
-BRS
-ASR
-SVP
-SV8A
+Do NOT return card_number as "224/187".
+Return:
+card_number = "224"
+set_total = "187"
+collector_number = "224/187"
 
-8.
-For graphical set symbols, identify the likely set using:
-- symbol
-- artwork
-- era
-- copyright
-- collector number
-- set total
+SET RULES:
 
-9.
-Never invent unreadable digits.
+- Read a printed code when present.
+- Do not confuse rarity labels (RR, SR, SAR, AR, UR) with set codes.
+- For graphical set symbols, infer the set only when reasonably confident.
+- For Simplified/Traditional Chinese cards, regional set codes may differ from English/Japanese equivalents. Preserve the regional printed code.
+- For Korean cards, do not automatically reuse a Japanese set code unless the printed Korean card actually supports that mapping.
 
-10.
-Never invent a set code.
+FINISH RULES:
 
-11.
-found=false only when there is not enough information to identify a useful base-card identity.
+Determine finish only after the base card is identified.
 
-ASIAN LANGUAGE RULES
-
-12.
-For Japanese cards:
-- do not require Latin OCR
-- use Japanese printed name
-- artwork
-- collector number
-- set code/symbol
-- HP
-- type
-- layout
-
-Return card_name as the canonical English Pokémon/card name when confidently known.
-
-Keep the original Japanese printed name in printed_name.
-
-13.
-For Simplified Chinese and Traditional Chinese cards:
-- do not rely on English OCR
-- use Chinese printed name
-- artwork
-- collector number
-- set markings
-- HP
-- type
-- layout
-- regional release style
-
-Return language as:
-Simplified Chinese
-or
-Traditional Chinese
-when confidently known.
-
-If only Chinese can be determined:
-language = Chinese
-
-14.
-For Korean cards:
-- do not require Latin OCR
-- use Korean printed name
-- artwork
-- collector number
-- set markings
-- HP
-- type
-- layout
-
-Return card_name as the canonical English Pokémon/card name when confidently known.
-
-Keep the original Korean printed name in printed_name.
-
-15.
-For Japanese, Chinese and Korean cards:
-do NOT leave both set_name and set_code empty if the set can reasonably be determined from:
-- collector number
-- set symbol/code
-- artwork
-- regional layout
-- release style
-
-16.
-If the set cannot be determined reliably:
-leave set_name and set_code empty rather than guessing.
-
-FINISH RULES
-
-17.
-Determine finish only AFTER the base card is identified.
-
-18.
-Choose exactly one of:
-
+Allowed values:
 Basic / Normaal
 Holo
 Reverse Holo
@@ -300,385 +352,171 @@ Play! Pokémon stamp
 Other
 Unknown
 
-19.
-Poké Ball / Great Ball / Master Ball / stamps are variants only.
+If a Poké Ball / Great Ball / Master Ball symbol appears repeatedly in the foil, treat it as a finish variant of the SAME base card.
 
-20.
-If uncertain:
-finish = Unknown
+If finish is uncertain, use Unknown.
 
-Return only the structured result.
+Return ONLY the structured result.
 `;
 
-const RETRY_PROMPT = `
-Perform a second, stricter verification of this Pokémon card.
-
-Focus especially on:
-
-BOTTOM AREA
-- collector number
-- set total
-- set code
-- set symbol
-- rarity label
-
-TOP AREA
-- card name
-- Japanese text
-- Chinese text
-- Korean text
-- HP
-- type
-- evolution stage
-
-ARTWORK
-- identify the Pokémon from artwork
-- compare artwork and layout to known Pokémon TCG printings
-
-ASIAN CARDS
-For Japanese, Chinese and Korean cards:
-- use original-script text
-- artwork
-- collector number
-- set markings
-- HP
-- layout
-- regional release style
-
-NUMBER NORMALIZATION
-If a previous result returned:
-card_number = "224/187"
-
-correct this to:
-
-card_number = "224"
-set_total = "187"
-collector_number = "224/187"
-
-Do not confuse rarity labels such as RR / SR / SAR with set codes.
-
-Do not guess unreadable digits.
-
-Return only the structured result.
-`;
-
-function cleanText(value) {
-  return String(value ?? "").trim();
+function text(v) {
+  return String(v ?? "").trim();
 }
 
-function clamp01(value) {
-  return Math.max(
-    0,
-    Math.min(
-      1,
-      Number(value || 0)
-    )
-  );
+function clamp(v) {
+  const n = Number(v || 0);
+  return Math.max(0, Math.min(1, n));
 }
 
-function normalizeCollectorParts(result) {
-  let cardNumber = cleanText(result?.card_number);
-  let setTotal = cleanText(result?.set_total);
-  let collector = cleanText(result?.collector_number);
+function splitCollector(value) {
+  const m = text(value).match(/^([^/]+)\/([^/]+)$/);
+  return m ? [m[1].trim(), m[2].trim()] : null;
+}
 
-  const splitCollector = (value) => {
-    const match = cleanText(value).match(/^([^/]+)\/([^/]+)$/);
+function normalizeResult(raw) {
+  let cardNumber = text(raw?.card_number);
+  let setTotal = text(raw?.set_total);
+  let collector = text(raw?.collector_number);
 
-    if (!match) {
-      return null;
-    }
-
-    return [
-      match[1].trim(),
-      match[2].trim()
-    ];
-  };
-
-  let parts = splitCollector(collector);
-
-  if (!parts) {
-    parts = splitCollector(cardNumber);
-  }
+  let parts = splitCollector(collector) || splitCollector(cardNumber);
 
   if (parts) {
     cardNumber = parts[0];
-
-    if (!setTotal) {
-      setTotal = parts[1];
-    }
-
-    collector =
-      `${parts[0]}/${parts[1]}`;
-  }
-
-  if (
-    !collector &&
-    cardNumber &&
-    setTotal
-  ) {
-    collector =
-      `${cardNumber}/${setTotal}`;
-  }
-
-  const cardParts =
-    splitCollector(cardNumber);
-
-  if (cardParts) {
-    cardNumber =
-      cardParts[0];
-
-    if (!setTotal) {
-      setTotal =
-        cardParts[1];
-    }
-
-    if (!collector) {
-      collector =
-        `${cardParts[0]}/${cardParts[1]}`;
-    }
+    if (!setTotal) setTotal = parts[1];
+    collector = `${parts[0]}/${parts[1]}`;
+  } else if (!collector && cardNumber && setTotal) {
+    collector = `${cardNumber}/${setTotal}`;
   }
 
   return {
-    cardNumber,
-    setTotal,
-    collector
+    found: Boolean(raw?.found),
+    card_name: text(raw?.card_name),
+    printed_name: text(raw?.printed_name),
+    language: LANGUAGES.includes(raw?.language) ? raw.language : "Unknown",
+    set_name: text(raw?.set_name),
+    set_code: text(raw?.set_code),
+    card_number: cardNumber,
+    set_total: setTotal,
+    collector_number: collector,
+    finish: FINISHES.includes(raw?.finish) ? raw.finish : "Unknown",
+    identity_confidence: clamp(raw?.identity_confidence),
+    finish_confidence: clamp(raw?.finish_confidence),
+    notes: text(raw?.notes).slice(0, 900)
   };
 }
 
-function cleanResult(result) {
-  const parts =
-    normalizeCollectorParts(
-      result || {}
-    );
-
-  return {
-    found:
-      Boolean(result?.found),
-
-    card_name:
-      cleanText(result?.card_name),
-
-    printed_name:
-      cleanText(result?.printed_name),
-
-    language:
-      LANGUAGES.includes(result?.language)
-        ? result.language
-        : "Unknown",
-
-    set_name:
-      cleanText(result?.set_name),
-
-    set_code:
-      cleanText(result?.set_code),
-
-    card_number:
-      parts.cardNumber,
-
-    set_total:
-      parts.setTotal,
-
-    collector_number:
-      parts.collector,
-
-    finish:
-      FINISHES.includes(result?.finish)
-        ? result.finish
-        : "Unknown",
-
-    identity_confidence:
-      clamp01(
-        result?.identity_confidence
-      ),
-
-    finish_confidence:
-      clamp01(
-        result?.finish_confidence
-      ),
-
-    notes:
-      cleanText(result?.notes)
-        .slice(0, 900)
-  };
-}
-
-function extractResponseText(response) {
-  const direct =
-    cleanText(
-      response?.output_text
-    );
-
-  if (direct) {
-    return direct;
-  }
+function getOutputText(response) {
+  const direct = text(response?.output_text);
+  if (direct) return direct;
 
   const pieces = [];
 
-  for (
-    const item
-    of response?.output || []
-  ) {
-
-    if (
-      typeof item?.text === "string"
-    ) {
-      pieces.push(
-        item.text
-      );
-    }
-
-    for (
-      const content
-      of item?.content || []
-    ) {
-
-      if (
-        typeof content?.text === "string"
-      ) {
-        pieces.push(
-          content.text
-        );
-      }
-
-      if (
-        typeof content?.output_text === "string"
-      ) {
-        pieces.push(
-          content.output_text
-        );
-      }
-
-      if (
-        typeof content?.json === "string"
-      ) {
-        pieces.push(
-          content.json
-        );
-      }
-
-      if (
-        content?.json &&
-        typeof content.json === "object"
-      ) {
-        pieces.push(
-          JSON.stringify(
-            content.json
-          )
-        );
+  for (const item of response?.output || []) {
+    for (const content of item?.content || []) {
+      if (typeof content?.text === "string") pieces.push(content.text);
+      if (typeof content?.output_text === "string") pieces.push(content.output_text);
+      if (typeof content?.json === "string") pieces.push(content.json);
+      if (content?.json && typeof content.json === "object") {
+        pieces.push(JSON.stringify(content.json));
       }
     }
   }
 
-  return cleanText(
-    pieces.join("\n")
-  );
+  return text(pieces.join("\n"));
 }
 
-function parseJsonText(text) {
-  const raw =
-    cleanText(text)
-      .replace(
-        /^```json\s*/i,
-        ""
-      )
-      .replace(
-        /^```\s*/i,
-        ""
-      )
-      .replace(
-        /\s*```$/i,
-        ""
-      )
-      .trim();
+function parseResult(response) {
+  const output = getOutputText(response);
 
-  if (!raw) {
-    throw new Error(
-      "AI returned an empty response"
+  if (!output) {
+    console.error(
+      "No usable AI output:",
+      JSON.stringify(response?.output || []).slice(0, 4000)
     );
+    throw new Error("AI returned no usable output");
+  }
+
+  const cleaned = output
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+
+    if (first === -1 || last <= first) {
+      throw new Error("AI returned invalid JSON");
+    }
+
+    parsed = JSON.parse(cleaned.slice(first, last + 1));
+  }
+
+  return normalizeResult(parsed);
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+
+  if (req.method === "OPTIONS") {
+    res.setHeader("Allow", "POST, OPTIONS");
+    return res.status(204).end();
+  }
+
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST, OPTIONS");
+    return res.status(405).json({
+      ok: false,
+      error: "Gebruik POST."
+    });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(503).json({
+      ok: false,
+      error: "OPENAI_API_KEY ontbreekt in Vercel."
+    });
+  }
+
+  const image = req.body?.image;
+
+  if (typeof image !== "string" || !image.startsWith("data:image/")) {
+    return res.status(400).json({
+      ok: false,
+      error: "Geen geldige kaartafbeelding ontvangen."
+    });
+  }
+
+  if (image.length > 12_000_000) {
+    return res.status(413).json({
+      ok: false,
+      error: "Afbeelding is te groot. Probeer een kleinere foto."
+    });
   }
 
   try {
-    return JSON.parse(raw);
-  } catch {
-    const first =
-      raw.indexOf("{");
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
 
-    const last =
-      raw.lastIndexOf("}");
-
-    if (
-      first >= 0 &&
-      last > first
-    ) {
-      return JSON.parse(
-        raw.slice(
-          first,
-          last + 1
-        )
-      );
-    }
-
-    throw new Error(
-      "AI returned no valid JSON"
-    );
-  }
-}
-
-function parseResponse(response) {
-  if (
-    response?.status === "failed"
-  ) {
-    throw new Error(
-      `OpenAI response failed: ${JSON.stringify(
-        response?.error || {}
-      )}`
-    );
-  }
-
-  const text =
-    extractResponseText(
-      response
-    );
-
-  if (!text) {
-    console.error(
-      "Empty OpenAI output:",
-      JSON.stringify(
-        response?.output || []
-      ).slice(
-        0,
-        5000
-      )
-    );
-
-    throw new Error(
-      "AI returned an empty response"
-    );
-  }
-
-  return cleanResult(
-    parseJsonText(text)
-  );
-}
-
-async function runStructuredScan(
-  client,
-  image,
-  prompt
-) {
-  const response =
-    await client.responses.create({
-
+    // BELANGRIJK: slechts ÉÉN AI-call.
+    // Geen tweede verificatie-call meer, zodat Vercel niet tegen de functietijd aanloopt.
+    const response = await client.responses.create({
       model: MODEL,
 
       input: [
         {
           role: "user",
-
           content: [
             {
               type: "input_text",
-              text: prompt
+              text: PROMPT
             },
             {
               type: "input_image",
@@ -698,437 +536,41 @@ async function runStructuredScan(
         }
       },
 
-      max_output_tokens: 1400
+      max_output_tokens: 1000
     });
 
-  return parseResponse(
-    response
-  );
-}
+    const result = parseResult(response);
 
-async function runJsonFallback(
-  client,
-  image,
-  prompt
-) {
-  const fallbackPrompt = `
-${prompt}
-
-Return exactly ONE JSON object and nothing else.
-
-Use exactly these keys:
-
-found
-card_name
-printed_name
-language
-set_name
-set_code
-card_number
-set_total
-collector_number
-finish
-identity_confidence
-finish_confidence
-notes
-
-IMPORTANT:
-
-card_number must NOT contain "/".
-
-Example:
-
-card_number = "224"
-set_total = "187"
-collector_number = "224/187"
-`;
-
-  const response =
-    await client.responses.create({
-
-      model: MODEL,
-
-      input: [
-        {
-          role: "user",
-
-          content: [
-            {
-              type: "input_text",
-              text: fallbackPrompt
-            },
-            {
-              type: "input_image",
-              image_url: image,
-              detail: "high"
-            }
-          ]
-        }
-      ],
-
-      max_output_tokens: 1400
-    });
-
-  return parseResponse(
-    response
-  );
-}
-
-function isAsianLanguage(language) {
-  return [
-    "Japanese",
-    "Chinese",
-    "Simplified Chinese",
-    "Traditional Chinese",
-    "Korean"
-  ].includes(language);
-}
-
-function shouldRetry(result) {
-  if (!result?.found) {
-    return true;
-  }
-
-  if (
-    result.identity_confidence <
-    0.70
-  ) {
-    return true;
-  }
-
-  if (
-    !result.card_name &&
-    !result.card_number
-  ) {
-    return true;
-  }
-
-  if (
-    !result.card_number
-  ) {
-    return true;
-  }
-
-  if (
-    isAsianLanguage(
-      result.language
-    ) &&
-    !result.set_name &&
-    !result.set_code
-  ) {
-    return true;
-  }
-
-  if (
-    result.collector_number &&
-    result.collector_number.includes("/") &&
-    (
-      !result.set_total ||
-      !result.card_number
-    )
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function resultScore(result) {
-  let score =
-    (
-      result?.identity_confidence ||
-      0
-    ) * 100;
-
-  if (
-    result?.card_name
-  ) {
-    score += 18;
-  }
-
-  if (
-    result?.card_number
-  ) {
-    score += 20;
-  }
-
-  if (
-    result?.set_total
-  ) {
-    score += 12;
-  }
-
-  if (
-    result?.set_code
-  ) {
-    score += 16;
-  }
-
-  if (
-    result?.set_name
-  ) {
-    score += 12;
-  }
-
-  if (
-    result?.collector_number
-  ) {
-    score += 12;
-  }
-
-  if (
-    result?.language &&
-    result.language !== "Unknown"
-  ) {
-    score += 5;
-  }
-
-  if (
-    isAsianLanguage(
-      result?.language
-    ) &&
-    (
-      result?.set_name ||
-      result?.set_code
-    )
-  ) {
-    score += 8;
-  }
-
-  return score;
-}
-
-function chooseBetter(
-  first,
-  second
-) {
-  return (
-    resultScore(second) >
-    resultScore(first)
-  )
-    ? second
-    : first;
-}
-
-async function scanWithFallbacks(
-  client,
-  image
-) {
-  let first;
-
-  try {
-    first =
-      await runStructuredScan(
-        client,
-        image,
-        BASE_PROMPT
-      );
+    return res.status(200).json(result);
 
   } catch (error) {
+    console.error("ZamexCards scan error:", {
+      message: error?.message,
+      status: error?.status,
+      type: error?.type,
+      code: error?.code
+    });
 
-    console.warn(
-      "Structured scan failed; using JSON fallback:",
-      error?.message || error
-    );
+    const status = Number(error?.status);
 
-    first =
-      await runJsonFallback(
-        client,
-        image,
-        BASE_PROMPT
-      );
-  }
-
-  if (
-    !shouldRetry(first)
-  ) {
-    return cleanResult(
-      first
-    );
-  }
-
-  try {
-    let second;
-
-    const verificationPrompt = `
-${BASE_PROMPT}
-
-${RETRY_PROMPT}
-
-FIRST RESULT TO VERIFY:
-
-${JSON.stringify(first)}
-`;
-
-    try {
-      second =
-        await runStructuredScan(
-          client,
-          image,
-          verificationPrompt
-        );
-
-    } catch (error) {
-
-      console.warn(
-        "Structured retry failed; using JSON fallback retry:",
-        error?.message || error
-      );
-
-      second =
-        await runJsonFallback(
-          client,
-          image,
-          verificationPrompt
-        );
+    if (status === 401) {
+      return res.status(401).json({
+        ok: false,
+        error: "OpenAI API-sleutel is ongeldig."
+      });
     }
 
-    return cleanResult(
-      chooseBetter(
-        first,
-        second
-      )
-    );
-
-  } catch (error) {
-
-    console.warn(
-      "Second scan pass failed; using first result:",
-      error?.message || error
-    );
-
-    return cleanResult(
-      first
-    );
-  }
-}
-
-export default async function handler(
-  req,
-  res
-) {
-  if (
-    req.method === "OPTIONS"
-  ) {
-    res.setHeader(
-      "Allow",
-      "POST, OPTIONS"
-    );
-
-    return res
-      .status(204)
-      .end();
-  }
-
-  if (
-    req.method !== "POST"
-  ) {
-    res.setHeader(
-      "Allow",
-      "POST, OPTIONS"
-    );
-
-    return res
-      .status(405)
-      .json({
-        error:
-          "Gebruik POST."
+    if (status === 429) {
+      return res.status(429).json({
+        ok: false,
+        error: "OpenAI API-limiet of tegoed bereikt."
       });
-  }
+    }
 
-  if (
-    !process.env.OPENAI_API_KEY
-  ) {
-    return res
-      .status(503)
-      .json({
-        error:
-          "AI scanner is nog niet geconfigureerd: OPENAI_API_KEY ontbreekt in Vercel."
-      });
-  }
-
-  const image =
-    req.body?.image;
-
-  if (
-    typeof image !== "string" ||
-    !image.startsWith(
-      "data:image/"
-    )
-  ) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Geen geldige kaartafbeelding ontvangen."
-      });
-  }
-
-  if (
-    image.length >
-    12_000_000
-  ) {
-    return res
-      .status(413)
-      .json({
-        error:
-          "Afbeelding is te groot. Probeer een kleinere foto."
-      });
-  }
-
-  try {
-    const client =
-      new OpenAI({
-        apiKey:
-          process.env.OPENAI_API_KEY
-      });
-
-    const result =
-      await scanWithFallbacks(
-        client,
-        image
-      );
-
-    res.setHeader(
-      "Cache-Control",
-      "no-store"
-    );
-
-    return res
-      .status(200)
-      .json(result);
-
-  } catch (error) {
-
-    console.error(
-      "OpenAI scan error:",
-      error
-    );
-
-    const status =
-      Number(
-        error?.status
-      ) || 500;
-
-    const safeStatus =
-      (
-        status >= 400 &&
-        status < 600
-      )
-        ? status
-        : 500;
-
-    return res
-      .status(safeStatus)
-      .json({
-        error:
-          safeStatus === 401
-            ? "OpenAI API-sleutel is ongeldig."
-          : safeStatus === 429
-            ? "OpenAI API-limiet of tegoed bereikt. Controleer Billing/Limits."
-          : safeStatus === 413
-            ? "Afbeelding is te groot. Probeer een kleinere foto."
-          : "AI kaartscan mislukt. Probeer opnieuw."
-      });
+    return res.status(500).json({
+      ok: false,
+      error: "AI kaartscan mislukt. Probeer opnieuw.",
+      diagnostic: text(error?.message).slice(0, 300)
+    });
   }
 }
