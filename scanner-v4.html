@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ZamexCards Auto Scanner</title>
+<style>
+:root{--navy:#062447;--panel:#0a335d;--green:#49d05b;--blue:#2c9cf0;--muted:#bcd4ea;--danger:#ff6b6b;--warn:#ffc857}
+*{box-sizing:border-box}body{margin:0;background:#031a31;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:12px}.panel{background:var(--panel);border:1px solid #2fcf70;border-radius:20px;padding:16px;margin-bottom:14px}.camera{position:relative;background:#03182d;border-radius:16px;overflow:hidden;min-height:300px;display:grid;place-items:center}.camera video,.camera img{width:100%;max-height:68vh;object-fit:contain}.camera img{display:none}.guide{position:absolute;inset:5% 12%;border:2px solid var(--green);border-radius:15px;pointer-events:none}.guide.scan{border-color:var(--warn);box-shadow:0 0 24px rgba(255,200,87,.6)}.row{display:grid;grid-template-columns:1fr 70px 70px;gap:10px;margin-top:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}button,label{border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;text-align:center;cursor:pointer}.primary{background:var(--green);color:#fff}.blue{background:var(--blue);color:#fff}.dark{background:#0a2e51;color:#fff;border:1px solid #396487}.status{margin-top:12px;padding:13px;border-radius:12px;background:#082b4c}.ok{border-left:5px solid var(--green)}.warn{border-left:5px solid var(--warn)}.bad{border-left:5px solid var(--danger)}.result{display:none}.grid{display:grid;grid-template-columns:120px 1fr;gap:16px}.thumb{width:120px;border-radius:12px}.pill{display:inline-block;padding:7px 10px;border:1px solid #4d7498;border-radius:99px;margin:3px}.auto{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;background:#062846;padding:12px;border-radius:12px}.switch{width:50px;height:28px;border-radius:99px;background:#35b957;position:relative}.switch:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;right:3px}.switch.off{background:#35536d}.switch.off:after{left:3px;right:auto}input{display:none}
+@media(max-width:600px){.grid{grid-template-columns:90px 1fr}.thumb{width:90px}.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="panel">
+<h1>ZamexCards AI Scanner</h1>
+<p style="color:var(--muted)">Houd de kaart in het kader. De scan start vanzelf.</p>
+
+<div class="camera">
+<video id="cam" autoplay playsinline muted></video>
+<img id="preview">
+<div class="guide" id="guide"></div>
+</div>
+
+<div class="auto">
+<div><strong>⚡ Automatisch scannen</strong><br><small style="color:var(--muted)">Standaard aan</small></div>
+<div id="toggle" class="switch"></div>
+</div>
+
+<div class="row">
+<button id="manual" class="primary">🔎 Nu scannen</button>
+<button id="minus" class="dark">−</button>
+<button id="plus" class="dark">+</button>
+</div>
+
+<div class="row2">
+<label for="gallery" class="blue">🖼 Uit galerij</label>
+<button id="restart" class="dark">🎥 Camera herstarten</button>
+</div>
+<input id="gallery" type="file" accept="image/*">
+<canvas id="canvas" hidden></canvas>
+<div id="status" class="status">Camera starten…</div>
+</section>
+
+<section id="result" class="panel result">
+<h2>Gevonden kaart</h2>
+<div class="grid">
+<img id="thumb" class="thumb">
+<div>
+<h2 id="name">–</h2>
+<div><span id="lang" class="pill"></span><span id="finish" class="pill"></span><span id="num" class="pill"></span></div>
+<p id="set"></p>
+<p id="conf"></p>
+</div>
+</div>
+<div class="row2">
+<button id="price" class="primary">💶 Naar Price Checker</button>
+<button id="next" class="dark">↻ Volgende kaart</button>
+</div>
+</section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id),API="/api/scan",PRICE="https://zamexcards.github.io/ZamexCardsPriceChecker/";
+let stream=null,result=null,image="",busy=false,auto=true,timer=null,zoom=1,zmin=1,zmax=1,zstep=.1;
+
+function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
+function schedule(ms=1100){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
+async function start(){
+ clearTimeout(timer);result=null;
+ try{
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:1920}},audio:false});
+  $("cam").srcObject=stream;$("cam").style.display="block";$("preview").style.display="none";$("guide").style.display="block";
+  await $("cam").play();await initZoom();status("Houd de kaart even stil…","ok");schedule(1100);
+ }catch(e){status("Camera niet beschikbaar. Gebruik galerij.","bad")}
+}
+async function initZoom(){
+ try{const t=stream.getVideoTracks()[0],c=t.getCapabilities();if(c.zoom){zmin=c.zoom.min;zmax=c.zoom.max;zstep=c.zoom.step||.1;zoom=Math.max(zmin,Math.min(zmax,zoom));await t.applyConstraints({advanced:[{zoom}]})}}catch(e){}
+}
+async function zoomBy(d){
+ try{const t=stream.getVideoTracks()[0];zoom=Math.max(zmin,Math.min(zmax,zoom+d*Math.max(zstep,.1)*2));await t.applyConstraints({advanced:[{zoom}]});status("Zoom "+zoom.toFixed(1)+"×","ok");schedule(700)}catch(e){status("Zoom niet ondersteund.","warn")}
+}
+function frame(){
+ const v=$("cam");if(!v.videoWidth)return "";
+ const c=$("canvas"),max=1280,s=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight));
+ c.width=Math.round(v.videoWidth*s);c.height=Math.round(v.videoHeight*s);c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ return c.toDataURL("image/jpeg",.82);
+}
+async function scan(isAuto=false,data=null){
+ if(busy||result)return;const f=data||frame();if(!f){schedule(500);return}
+ busy=true;clearTimeout(timer);$("guide").classList.add("scan");status(isAuto?"Automatische scan bezig…":"Scan bezig…","warn");
+ try{
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:f})});
+  const d=await r.json();if(!r.ok||!d?.found)throw new Error(d?.error||"Geen kaart gevonden");
+  image=f;result=d;show(d);status("Kaart herkend.","ok");
+ }catch(e){status((e.message||"Scan mislukt")+(auto?" — nieuwe poging volgt.":""),"bad");if(auto)schedule(1800)}
+ finally{busy=false;$("guide").classList.remove("scan")}
+}
+function show(d){
+ $("preview").src=image;$("preview").style.display="block";$("cam").style.display="none";$("guide").style.display="none";
+ $("thumb").src=image;$("name").textContent=d.card_name||"Onbekend";$("lang").textContent=d.language||"Unknown";$("finish").textContent=d.finish||"Unknown";$("num").textContent=d.collector_number||d.card_number||"–";$("set").textContent=[d.set_name,d.set_code].filter(Boolean).join(" · ");$("conf").textContent="Herkenningszekerheid: "+Math.round(Number(d.identity_confidence||0)*100)+"%";$("result").style.display="block";$("result").scrollIntoView({behavior:"smooth"});
+}
+function mapLang(x){x=String(x||"").toLowerCase();if(x.includes("chinese"))return"Chinese";if(x.includes("japanese"))return"Japanese";if(x.includes("korean"))return"Korean";return"English"}
+function mapVar(x){x=String(x||"").toLowerCase();if(x.includes("master"))return"Master Ball";if(x.includes("great"))return"Great Ball";if(x.includes("pok"))return"Poké Ball";if(x.includes("reverse"))return"Reverse Holo";if(x.includes("holo"))return"Holo";return"Standard"}
+
+$("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
+$("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(700);else clearTimeout(timer)};
+$("gallery").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f)};
+$("next").onclick=()=>{$("result").style.display="none";result=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
+$("price").onclick=()=>{if(!result)return;const d=result,p=new URLSearchParams({zcscan:"1",name:d.card_name||"",printed:d.printed_name||"",set:d.set_code||d.set_name||"",number:d.card_number||"",collector:d.collector_number||"",language:mapLang(d.language),variant:mapVar(d.finish),finish:d.finish||"",confidence:String(d.identity_confidence||0)});location.href=PRICE+"?"+p};
+start();
+</script>
+</body>
+</html>
