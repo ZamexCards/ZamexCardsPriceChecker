@@ -464,7 +464,9 @@ export default async function handler(req, res) {
       );
     }
 
-    // NEW: AI is only a first-pass recognizer. The catalog becomes the source of truth.
+    // AI is only a first-pass recognizer. The catalog becomes the source of truth.
+    card.catalog_resolved = false;
+    card.catalog_candidates = [];
     try {
       const resolved = await resolveCatalogCard({
         imageDataUrl,
@@ -474,6 +476,8 @@ export default async function handler(req, res) {
       });
 
       if (resolved?.resolved) {
+        card.catalog_resolved = true;
+        card.catalog_candidates = [];
         card.card_name = resolved.card_name || card.card_name;
         card.set_name = resolved.set_name || "";
         card.set_code = resolved.set_code || "";
@@ -493,7 +497,9 @@ export default async function handler(req, res) {
           `Catalog verified: ${resolved.set_name || ""} ${resolved.collector_number || ""} (${resolved.method || "catalog"})`
         ].filter(Boolean).join(" | ").slice(0, 1200);
       } else {
-        // Never present a guessed set as fact when the catalog could not verify it.
+        // Geen set gokken. Stuur echte cataloguskandidaten terug naar de scanner.
+        card.catalog_resolved = false;
+        card.catalog_candidates = Array.isArray(resolved?.candidates) ? resolved.candidates : [];
         card.set_name = "";
         card.set_code = "";
         card.notes = [
