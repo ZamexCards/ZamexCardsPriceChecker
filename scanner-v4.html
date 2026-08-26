@@ -65,21 +65,21 @@ const $=id=>document.getElementById(id),API="/api/scan",PRICE="https://zamexcard
 let stream=null,result=null,image="",busy=false,auto=true,timer=null,zoom=1,zmin=1,zmax=1,zstep=.1;
 
 function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
-function schedule(ms=1100){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
+function schedule(ms=500){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
 async function start(){
  clearTimeout(timer);result=null;
  try{
   if(stream)stream.getTracks().forEach(t=>t.stop());
   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:720},height:{ideal:1008},aspectRatio:{ideal:0.7159}},audio:false});
   $("cam").srcObject=stream;$("cam").style.display="block";$("preview").style.display="none";$("guide").style.display="block";
-  await $("cam").play();await initZoom();status("Houd de kaart even stil…","ok");schedule(1100);
+  await $("cam").play();await initZoom();status("Houd de kaart even stil…","ok");schedule(500);
  }catch(e){status("Camera niet beschikbaar. Gebruik galerij.","bad")}
 }
 async function initZoom(){
  try{const t=stream.getVideoTracks()[0],c=t.getCapabilities();if(c.zoom){zmin=c.zoom.min;zmax=c.zoom.max;zstep=c.zoom.step||.1;zoom=zmin;await t.applyConstraints({advanced:[{zoom:zmin}]})}}catch(e){}
 }
 async function zoomBy(d){
- try{const t=stream.getVideoTracks()[0];zoom=Math.max(zmin,Math.min(zmax,zoom+d*Math.max(zstep,.1)*2));await t.applyConstraints({advanced:[{zoom}]});status("Zoom "+zoom.toFixed(1)+"×","ok");schedule(700)}catch(e){status("Zoom niet ondersteund.","warn")}
+ try{const t=stream.getVideoTracks()[0];zoom=Math.max(zmin,Math.min(zmax,zoom+d*Math.max(zstep,.1)*2));await t.applyConstraints({advanced:[{zoom}]});status("Zoom "+zoom.toFixed(1)+"×","ok");schedule(350)}catch(e){status("Zoom niet ondersteund.","warn")}
 }
 function frame(){
  const v=$("cam");if(!v.videoWidth)return "";
@@ -94,7 +94,7 @@ async function scan(isAuto=false,data=null){
   const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:f})});
   const d=await r.json();if(!r.ok||!d?.found)throw new Error(d?.error||"Geen kaart gevonden");
   image=f;result=d;show(d);status("Kaart herkend.","ok");
- }catch(e){status((e.message||"Scan mislukt")+(auto?" — nieuwe poging volgt.":""),"bad");if(auto)schedule(1800)}
+ }catch(e){status((e.message||"Scan mislukt")+(auto?" — nieuwe poging volgt.":""),"bad");if(auto)schedule(900)}
  finally{busy=false;$("guide").classList.remove("scan")}
 }
 function show(d){
@@ -108,7 +108,7 @@ function mapLang(x){x=String(x||"").toLowerCase();if(x.includes("chinese"))retur
 function mapVar(x){x=String(x||"").toLowerCase();if(x.includes("master"))return"Master Ball";if(x.includes("great"))return"Great Ball";if(x.includes("pok"))return"Poké Ball";if(x.includes("reverse"))return"Reverse Holo";if(x.includes("holo"))return"Holo";return"Standard"}
 
 $("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
-$("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(700);else clearTimeout(timer)};
+$("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(350);else clearTimeout(timer)};
 $("gallery").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f)};
 $("next").onclick=()=>{$("result").style.display="none";result=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
 $("price").onclick=()=>{if(!result)return;const d=result;const raw=d.finish||"";const ball=/^(Poké Ball|Great Ball|Master Ball)$/i.test(raw);const handoffFinish=ball?"Reverse Holo":raw;const p=new URLSearchParams({zcscan:"1",name:d.card_name||"",printed:d.printed_name||"",set:d.set_code||d.set_name||"",number:d.card_number||"",collector:d.collector_number||"",language:mapLang(d.language),variant:mapVar(handoffFinish),finish:handoffFinish,confidence:String(d.identity_confidence||0)});location.href=PRICE+"?"+p};
