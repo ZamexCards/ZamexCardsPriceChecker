@@ -34,9 +34,11 @@
 </div>
 
 <div class="row2">
+<label for="photo" class="primary">📸 Foto maken</label>
 <label for="gallery" class="blue">🖼 Uit galerij</label>
-<button id="restart" class="dark">🎥 Camera herstarten</button>
 </div>
+<button id="restart" class="dark" style="width:100%;margin-top:10px">🎥 Camera herstarten</button>
+<input id="photo" type="file" accept="image/*" capture="environment">
 <input id="gallery" type="file" accept="image/*">
 <canvas id="canvas" hidden></canvas>
 <div id="status" class="status">Camera starten…</div>
@@ -109,6 +111,7 @@ function mapVar(x){x=String(x||"").toLowerCase();if(x.includes("master"))return"
 
 $("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
 $("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(350);else clearTimeout(timer)};
+$("photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f);e.target.value=""};
 $("gallery").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f)};
 $("next").onclick=()=>{$("result").style.display="none";result=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
 $("price").onclick=()=>{if(!result)return;const d=result;const raw=d.finish||"";const ball=/^(Poké Ball|Great Ball|Master Ball)$/i.test(raw);const handoffFinish=ball?"Reverse Holo":raw;const p=new URLSearchParams({zcscan:"1",name:d.card_name||"",printed:d.printed_name||"",set:d.set_code||d.set_name||"",number:d.card_number||"",collector:d.collector_number||"",language:mapLang(d.language),variant:mapVar(handoffFinish),finish:handoffFinish,confidence:String(d.identity_confidence||0)});location.href=PRICE+"?"+p};
