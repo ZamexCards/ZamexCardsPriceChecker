@@ -6,7 +6,7 @@
 <title>ZamexCards Auto Scanner</title>
 <style>
 :root{--navy:#062447;--panel:#0a335d;--green:#49d05b;--blue:#2c9cf0;--muted:#bcd4ea;--danger:#ff6b6b;--warn:#ffc857}
-*{box-sizing:border-box}body{margin:0;background:#031a31;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:12px}.panel{background:var(--panel);border:1px solid #2fcf70;border-radius:20px;padding:16px;margin-bottom:14px}.camera{position:relative;background:#03182d;border-radius:16px;overflow:hidden;width:min(100%,520px);aspect-ratio:63/88;margin:0 auto;display:grid;place-items:center}.camera video,.camera img{width:100%;height:100%;object-fit:contain;background:#03182d}.camera img{display:none}.guide{position:absolute;left:8%;right:8%;top:5%;bottom:5%;border:2px solid var(--green);border-radius:15px;pointer-events:none}.guide.scan{border-color:var(--warn);box-shadow:0 0 24px rgba(255,200,87,.6)}.row{display:grid;grid-template-columns:1fr 70px 70px;gap:10px;margin-top:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}button,label{border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;text-align:center;cursor:pointer}.primary{background:var(--green);color:#fff}.blue{background:var(--blue);color:#fff}.dark{background:#0a2e51;color:#fff;border:1px solid #396487}.status{margin-top:12px;padding:13px;border-radius:12px;background:#082b4c}.ok{border-left:5px solid var(--green)}.warn{border-left:5px solid var(--warn)}.bad{border-left:5px solid var(--danger)}.result{display:none}.grid{display:grid;grid-template-columns:120px 1fr;gap:16px}.thumb{width:120px;border-radius:12px}.pill{display:inline-block;padding:7px 10px;border:1px solid #4d7498;border-radius:99px;margin:3px}.auto{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;background:#062846;padding:12px;border-radius:12px}.switch{width:50px;height:28px;border-radius:99px;background:#35b957;position:relative}.switch:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;right:3px}.switch.off{background:#35536d}.switch.off:after{left:3px;right:auto}input{display:none}
+*{box-sizing:border-box}body{margin:0;background:#031a31;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:12px}.panel{background:var(--panel);border:1px solid #2fcf70;border-radius:20px;padding:16px;margin-bottom:14px}.camera{position:relative;background:#03182d;border-radius:16px;overflow:hidden;width:min(100%,520px);aspect-ratio:63/88;margin:0 auto;display:grid;place-items:center}.camera video,.camera img{width:100%;height:100%;object-fit:contain;background:#03182d}.camera video{transform:translateZ(0);-webkit-transform:translateZ(0);will-change:transform}.camera img{display:none}.guide{position:absolute;left:8%;right:8%;top:5%;bottom:5%;border:2px solid var(--green);border-radius:15px;pointer-events:none}.guide.scan{border-color:var(--warn);box-shadow:0 0 24px rgba(255,200,87,.6)}.row{display:grid;grid-template-columns:1fr 70px 70px;gap:10px;margin-top:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}button,label{border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;text-align:center;cursor:pointer}.primary{background:var(--green);color:#fff}.blue{background:var(--blue);color:#fff}.dark{background:#0a2e51;color:#fff;border:1px solid #396487}.status{margin-top:12px;padding:13px;border-radius:12px;background:#082b4c}.ok{border-left:5px solid var(--green)}.warn{border-left:5px solid var(--warn)}.bad{border-left:5px solid var(--danger)}.result{display:none}.grid{display:grid;grid-template-columns:120px 1fr;gap:16px}.thumb{width:120px;border-radius:12px}.pill{display:inline-block;padding:7px 10px;border:1px solid #4d7498;border-radius:99px;margin:3px}.auto{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;background:#062846;padding:12px;border-radius:12px}.switch{width:50px;height:28px;border-radius:99px;background:#35b957;position:relative}.switch:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;right:3px}.switch.off{background:#35536d}.switch.off:after{left:3px;right:auto}input{display:none}
 @media(max-width:600px){.grid{grid-template-columns:90px 1fr}.thumb{width:90px}.row2{grid-template-columns:1fr}.camera{width:100%;aspect-ratio:63/88}}
 
 .candidate-panel{display:none}.candidate-intro{color:var(--muted);line-height:1.5}
@@ -146,21 +146,76 @@
 </section>
 
 <div class="pricechecker-link-wrap">
-<a class="pricechecker-link" href="https://zamexcards.github.io/ZamexCardsPriceChecker/">
+<a id="priceCheckerLink" class="pricechecker-link" href="https://zamexcards.github.io/ZamexCardsPriceChecker/">
   💚 Bekijk mijn kaartenlijst in de Price Checker
 </a>
+<div id="queueInfo" style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px"></div>
 </div>
 
-<iframe id="listReceiver" src="https://zamexcards.github.io/ZamexCardsPriceChecker/list-receiver.html"
-title="ZamexCards kaartenlijst koppeling" style="display:none;width:0;height:0;border:0"></iframe>
 </div>
 
 <script>
 const $=id=>document.getElementById(id),API="/api/scan";
-const RECEIVER_ORIGIN="https://zamexcards.github.io";
+const PRICECHECKER_URL="https://zamexcards.github.io/ZamexCardsPriceChecker/";
+const SCAN_QUEUE_KEY="zc_scanner_queue_v1";
 let stream=null,result=null,image="",busy=false,auto=true,timer=null,zoom=1,zmin=1,zmax=1,zstep=.1;
 let catalogCard=null,selectedVariant="Basic / Normaal",priceInfo=null,pendingAddId=null;
 const VARIANTS=["Basic / Normaal","Holo","Reverse Holo","Poké Ball","Great Ball","Master Ball"];
+
+function getScanQueue(){
+ try{const q=JSON.parse(localStorage.getItem(SCAN_QUEUE_KEY)||"[]");return Array.isArray(q)?q:[]}
+ catch(e){return[]}
+}
+function setScanQueue(q){
+ localStorage.setItem(SCAN_QUEUE_KEY,JSON.stringify(q));
+ updateQueueInfo();
+}
+function compactQueueItem(){
+ const c=catalogCard,p=priceInfo||getPriceInfo(c,selectedVariant);
+ const id=[c.id,selectedVariant,displayLanguage(result?.language),"Near Mint","raw"].join("|");
+ return{
+  k:id,i:c.id,n:c.name||"",m:imageUrl(c?.image,"low"),
+  s:c?.set?.name||"",si:c?.set?.id||"",no:c?.localId||"",
+  r:c?.rarity||"Onbekend",v:selectedVariant,l:displayLanguage(result?.language),
+  c:"Near Mint",p:p?.value??null,cu:p?.currency||"EUR",
+  pl:p?.exact?"Gemiddelde prijs (30 dagen)":"Prijsindicatie",
+  ps:p?.source||"",q:1
+ };
+}
+function addToScannerQueue(){
+ if(!catalogCard)return;
+ const item=compactQueueItem();
+ const q=getScanQueue();
+ const old=q.find(x=>x.k===item.k);
+ if(old)old.q=Math.max(1,Number(old.q)||1)+1;
+ else q.push(item);
+ setScanQueue(q);
+ const qty=(old?old.q:1);
+ $("addList").classList.add("added-ok");
+ $("addList").textContent=`✅ Toegevoegd aan kaartenlijst${qty>1?` (${qty}×)`:""}`;
+ $("addList").disabled=true;
+ $("addNote").textContent="✅ Opgeslagen. Open onderaan de Price Checker om deze scanlijst over te zetten.";
+ status("Kaart toegevoegd aan jouw scanlijst.","ok");
+}
+function encodeQueue(q){
+ const json=JSON.stringify(q);
+ const bytes=new TextEncoder().encode(json);
+ let binary="";for(const b of bytes)binary+=String.fromCharCode(b);
+ return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function updateQueueInfo(){
+ const q=getScanQueue();
+ const total=q.reduce((s,x)=>s+Math.max(1,Number(x.q)||1),0);
+ const e=$("queueInfo");
+ if(e)e.textContent=total?`${total} kaart${total===1?"":"en"} klaar om naar de Price Checker over te zetten.`:"Nog geen gescande kaarten klaar om over te zetten.";
+}
+function openPriceCheckerWithQueue(ev){
+ const q=getScanQueue();
+ if(!q.length)return;
+ ev.preventDefault();
+ const payload=encodeQueue(q);
+ location.href=PRICECHECKER_URL+"?zcimport="+encodeURIComponent(payload);
+}
 
 function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
 function showLoading(message="Foto wordt verwerkt…"){
@@ -174,31 +229,118 @@ function hideLoading(){
  if(box)box.classList.remove("show");
 }
 function schedule(ms=1100){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
+async function waitVideoReady(v,timeout=4500){
+ if(v.videoWidth>0&&v.readyState>=2)return true;
+ return await new Promise(resolve=>{
+  let done=false;
+  const finish=ok=>{if(done)return;done=true;clearTimeout(t);v.removeEventListener("loadedmetadata",ready);v.removeEventListener("canplay",ready);resolve(ok)};
+  const ready=()=>{if(v.videoWidth>0)finish(true)};
+  const t=setTimeout(()=>finish(false),timeout);
+  v.addEventListener("loadedmetadata",ready);
+  v.addEventListener("canplay",ready);
+ });
+}
+async function frameLooksAlive(v){
+ try{
+  if(!v.videoWidth||!v.videoHeight)return false;
+  const c=document.createElement("canvas");c.width=48;c.height=64;
+  const x=c.getContext("2d",{willReadFrequently:true});
+  x.drawImage(v,0,0,c.width,c.height);
+  const d=x.getImageData(0,0,c.width,c.height).data;
+  let sum=0,max=0,min=255;
+  for(let i=0;i<d.length;i+=16){
+    const y=(d[i]+d[i+1]+d[i+2])/3;
+    sum+=y;if(y>max)max=y;if(y<min)min=y;
+  }
+  const samples=Math.ceil(d.length/16);
+  const avg=sum/samples;
+  return max>7 || avg>2 || (max-min)>5;
+ }catch(e){return true}
+}
+function rankVideoDevices(devices){
+ return [...devices].sort((a,b)=>{
+  const score=d=>{
+    const s=String(d.label||"").toLowerCase();
+    let n=0;
+    if(/back|rear|environment|achter/.test(s))n+=100;
+    if(/wide|main|camera 0/.test(s))n+=20;
+    if(/front|user|selfie|voor/.test(s))n-=100;
+    return n;
+  };
+  return score(b)-score(a);
+ });
+}
+async function attachStream(s){
+ const v=$("cam");
+ if(stream&&stream!==s)stream.getTracks().forEach(t=>t.stop());
+ stream=s;
+ v.srcObject=null;
+ v.srcObject=stream;
+ v.style.display="block";
+ $("preview").style.display="none";
+ $("guide").style.display="block";
+ v.muted=true;
+ v.setAttribute("playsinline","");
+ try{await v.play()}catch(e){}
+ const ready=await waitVideoReady(v,4500);
+ if(!ready)return false;
+ try{await v.play()}catch(e){}
+ await new Promise(r=>setTimeout(r,500));
+ return await frameLooksAlive(v);
+}
+async function openVerifiedCamera(){
+ // First request unlocks camera labels on Android.
+ let first=null;
+ try{
+  first=await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:"environment"}},
+    audio:false
+  });
+  if(await attachStream(first))return true;
+ }catch(e){}
+
+ let devices=[];
+ try{
+  devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+ }catch(e){}
+
+ for(const d of rankVideoDevices(devices)){
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({
+      video:{
+        deviceId:{exact:d.deviceId},
+        width:{ideal:1280},
+        height:{ideal:1920}
+      },
+      audio:false
+    });
+    if(await attachStream(s))return true;
+    s.getTracks().forEach(t=>t.stop());
+  }catch(e){}
+ }
+
+ // Final simple fallback, without width/height constraints.
+ try{
+  const s=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+  return await attachStream(s);
+ }catch(e){}
+ return false;
+}
 async function start(){
  clearTimeout(timer);result=null;catalogCard=null;priceInfo=null;pendingAddId=null;
  hideLoading();
  $("candidatePanel").style.display="none";$("result").style.display="none";
  $("addList").classList.remove("added-ok");$("addList").textContent="➕ Toevoegen aan kaartenlijst";$("addList").disabled=false;
+ status("Camera openen…","warn");
  try{
-  if(stream)stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({
-    video:{
-      facingMode:{ideal:"environment"},
-      width:{ideal:1280},
-      height:{ideal:1920}
-    },
-    audio:false
-  });
-  $("cam").srcObject=stream;
-  $("cam").style.display="block";
-  $("preview").style.display="none";
-  $("guide").style.display="block";
-  await $("cam").play();
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  const ok=await openVerifiedCamera();
+  if(!ok)throw new Error("Geen bruikbaar live camerabeeld ontvangen.");
   await initZoom();
   status("Houd de kaart even stil…","ok");
   schedule(1100);
  }catch(e){
-  status("Camera niet beschikbaar. Gebruik galerij.","bad")
+  status("Live camera geeft geen beeld. Foto maken en galerij blijven beschikbaar.","bad");
  }
 }
 async function initZoom(){
@@ -308,17 +450,7 @@ function listItem(){
  const c=catalogCard,lang=displayLanguage(result?.language),img=imageUrl(c?.image,"low"),p=priceInfo||getPriceInfo(c,selectedVariant);
  return{id:c.id,name:c.name||"",image:img,imageCandidates:img?[img]:[],set:c?.set?.name||"",setId:c?.set?.id||"",pokemonSetId:c?.set?.id||"",series:"",setLogo:c?.set?.logo||"",number:c?.localId||"",rarity:c?.rarity||"Onbekend",types:Array.isArray(c?.types)?c.types:[],releaseDate:c?.set?.releaseDate||"",tcgdexPricing:c?.pricing?.cardmarket||null,tcgplayerPricing:c?.pricing?.tcgplayer||null,variantsDetailed:Array.isArray(c?.variants_detailed)?c.variants_detailed:[],prices:{average30Days:p?.currency==="EUR"?p?.value:null,fallbackMarket:p?.value??null,fallbackCurrency:p?.currency||"EUR",fallbackLabel:p?.exact?"Gemiddelde prijs (30 dagen)":"Prijsindicatie",source:p?.source||"",isReal:p?.value!=null},variant:selectedVariant,language:lang,condition:"Near Mint",graded:false,gradingCompany:null,grade:null,listId:[c.id,selectedVariant,lang,"Near Mint","raw"].join("|"),quantity:1,addedViaScanner:true}
 }
-function addToSharedList(){
- if(!catalogCard)return;const i=$("listReceiver");if(!i?.contentWindow){status("Kaartenlijst-koppeling is nog niet klaar.","warn");return}
- const requestId=`zc_${Date.now()}_${Math.random().toString(36).slice(2)}`;pendingAddId=requestId;i.contentWindow.postMessage({type:"ZC_ADD_TO_LIST",requestId,item:listItem()},RECEIVER_ORIGIN);
- $("addList").disabled=true;$("addList").textContent="Toevoegen…";
- setTimeout(()=>{if(pendingAddId===requestId){pendingAddId=null;$("addList").disabled=false;$("addList").textContent="➕ Toevoegen aan kaartenlijst";status("Toevoegen duurde te lang. Probeer nogmaals.","warn")}},5000)
-}
-window.addEventListener("message",e=>{
- if(e.origin!==RECEIVER_ORIGIN||e.data?.type!=="ZC_LIST_ACK"||e.data?.requestId!==pendingAddId)return;pendingAddId=null;
- if(e.data.ok){$("addList").classList.add("added-ok");$("addList").textContent=`✅ Toegevoegd aan kaartenlijst${e.data.quantity>1?` (${e.data.quantity}×)`:""}`;$("addList").disabled=true;$("addNote").textContent="✅ Deze kaart staat nu in de kaartenlijst van de Price Checker.";status("Kaart toegevoegd aan jouw kaartenlijst.","ok")}
- else{$("addList").disabled=false;$("addList").textContent="➕ Toevoegen aan kaartenlijst";status(e.data.error||"Toevoegen is mislukt.","bad")}
-});
+function addToSharedList(){ addToScannerQueue(); }
 $("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
 $("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(700);else clearTimeout(timer)};
 $("photo").onchange=async e=>{
@@ -341,7 +473,10 @@ $("gallery").onchange=async e=>{
  rd.readAsDataURL(f);
 };
 $("next").onclick=()=>{$("result").style.display="none";$("candidatePanel").style.display="none";result=null;catalogCard=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
-$("addList").onclick=addToSharedList;start();
+$("addList").onclick=addToSharedList;
+$("priceCheckerLink").addEventListener("click",openPriceCheckerWithQueue);
+updateQueueInfo();
+start();
 </script>
 </body>
 </html>
