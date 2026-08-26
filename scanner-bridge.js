@@ -1,16 +1,13 @@
 /*
   ZamexCards Scanner -> Price Checker
-  Candidate Resolver v1
+  Resolver v3
 
-  BELANGRIJK:
-  - Scanner wordt NIET aangepast.
-  - Scanner-setcode is alleen een hint en wordt NIET als harde zoekwaarde gebruikt.
-  - De kaartdatabase is leidend.
-  - Identiteit wordt bepaald op:
-      1) naam
-      2) kaartnummer vóór de slash
-      3) officieel settotaal ná de slash
-  - Pas NA de exacte basiskaartmatch kiest de gebruiker de uitvoering.
+  Architecture:
+  - Scanner UI remains untouched.
+  - /api/scan verifies the base card against TCGdex first.
+  - This bridge prefers the verified database set + card number.
+  - If automatic verification is still ambiguous, the user gets real catalog candidates.
+  - No guessed scanner set is ever forced into the Price Checker.
 */
 (function () {
   const $ = id => document.getElementById(id);
@@ -25,9 +22,7 @@
     ["Master Ball", "Master Ball"]
   ];
 
-  function clean(v) {
-    return String(v ?? "").trim();
-  }
+  function clean(v) { return String(v ?? "").trim(); }
 
   function norm(v) {
     return clean(v)
@@ -37,8 +32,9 @@
       .replace(/[^a-z0-9]+/g, "");
   }
 
-  function normNumber(v) {
-    return clean(v).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  function numPart(v) {
+    const m = clean(v).match(/[A-Za-z]*0*(\d+)/);
+    return m ? String(Number(m[1])) : clean(v).toUpperCase();
   }
 
   function splitCollector(v) {
@@ -70,18 +66,18 @@
     }
   }
 
-  function databaseSetCode(card) {
+  function cardSetCode(card) {
     return clean(
       card?.setCode ||
       card?.ptcgoCode ||
-      card?.set?.code ||
+      card?.set?.abbreviations?.official ||
+      card?.set?.tcgOnline ||
       card?.setId ||
       ""
     );
   }
 
-  function databaseSetTotal(card) {
-    // Gebruik eerst de helper uit de huidige Price Checker.
+  function cardSetTotal(card) {
     try {
       if (typeof zcSetTotalFromCard === "function") {
         const x = clean(zcSetTotalFromCard(card));
@@ -96,33 +92,27 @@
       card?.set?.cardCount?.official,
       card?.set?.cardCount?.total
     ];
-
-    for (const value of values) {
-      const m = clean(value).match(/\d{1,4}/);
+    for (const v of values) {
+      const m = clean(v).match(/\d+/);
       if (m) return m[0];
     }
     return "";
   }
 
-  function exactIdentity(scan, card) {
-    const collector = splitCollector(scan.collector);
+  function sameName(name, card) {
+    const a = norm(name);
+    const b = norm(card?.name);
+    return !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+  }
 
-    const sameName =
-      !scan.name ||
-      norm(card?.name) === norm(scan.name) ||
-      norm(card?.name).includes(norm(scan.name)) ||
-      norm(scan.name).includes(norm(card?.name));
+  function sameNumber(number, card) {
+    return numPart(number) === numPart(card?.number || card?.localId || card?.printedNumber);
+  }
 
-    const sameNumber =
-      normNumber(card?.number || card?.printedNumber) === normNumber(collector.number);
-
-    const cardTotal = databaseSetTotal(card);
-    const sameTotal =
-      !!collector.total &&
-      !!cardTotal &&
-      normNumber(cardTotal) === normNumber(collector.total);
-
-    return sameName && sameNumber && sameTotal;
+  function sameTotal(total, card) {
+    if (!clean(total)) return true;
+    const ct = cardSetTotal(card);
+    return !!ct && numPart(total) === numPart(ct);
   }
 
   function scanPayload() {
@@ -131,7 +121,7 @@
       enabled: p.get("zcscan") === "1",
       name: clean(p.get("name")),
       printed: clean(p.get("printed")),
-      scannerSet: clean(p.get("set")),
+      set: clean(p.get("set")),
       number: clean(p.get("number")),
       collector: clean(p.get("collector")) || clean(p.get("number")),
       language: clean(p.get("language")),
@@ -141,19 +131,16 @@
   }
 
   function injectStyle() {
-    if ($("zcCandidateResolverStyle")) return;
+    if ($("zcResolverStyle")) return;
     const s = document.createElement("style");
-    s.id = "zcCandidateResolverStyle";
+    s.id = "zcResolverStyle";
     s.textContent = `
-      .zc-resolver{
-        margin:14px 0;padding:16px;border:1px solid #2c8c47;border-radius:16px;
-        background:linear-gradient(180deg,#082b50,#061f3d);color:#fff;
-      }
+      .zc-resolver{margin:14px 0;padding:16px;border:1px solid #2fcf70;border-radius:16px;background:linear-gradient(180deg,#082b50,#061f3d);color:#fff}
       .zc-resolver.warn{border-color:#e8ad44}
       .zc-resolver.bad{border-color:#ff6b6b}
-      .zc-resolver h3{margin:0 0 7px;font-size:20px}
+      .zc-resolver h3{margin:0 0 8px;font-size:20px}
       .zc-resolver p{margin:0;color:#c0d5e4;line-height:1.5}
-      .zc-resolver-meta{margin-top:10px;padding:10px 12px;border-radius:10px;background:#092442;font-size:13px;line-height:1.55}
+      .zc-meta{margin-top:10px;padding:10px 12px;border-radius:10px;background:#092442;font-size:13px;line-height:1.55}
       .zc-variant-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:13px}
       .zc-variant-btn{border:1px solid #31587b;background:#0a294c;color:#fff;border-radius:11px;padding:12px 8px;font-weight:900;cursor:pointer}
       .zc-variant-btn.active{border-color:#58df67;background:linear-gradient(135deg,#1d7c42,#2ea84b)}
@@ -162,229 +149,110 @@
     document.head.appendChild(s);
   }
 
-  function resolverBox() {
+  function box() {
     injectStyle();
-    let box = $("zcCandidateResolver");
-    if (box) return box;
-
-    box = document.createElement("section");
-    box.id = "zcCandidateResolver";
-    box.className = "zc-resolver";
-
+    let el = $("zcResolver");
+    if (el) return el;
+    el = document.createElement("section");
+    el.id = "zcResolver";
+    el.className = "zc-resolver";
     const detail = $("detailPanel");
     const strip = $("resultsStrip");
     const parent = (strip && strip.parentNode) || (detail && detail.parentNode) || document.body;
-
-    if (detail && detail.parentNode === parent) parent.insertBefore(box, detail);
-    else parent.appendChild(box);
-
-    return box;
+    if (detail && detail.parentNode === parent) parent.insertBefore(el, detail);
+    else parent.appendChild(el);
+    return el;
   }
 
-  function setSearchFields(scan, card) {
+  function setFields(scan, card) {
     const collector = splitCollector(scan.collector);
-
-    if ($("q")) $("q").value = card?.name || scan.name;
-    if ($("number")) $("number").value = card?.number || collector.number;
-
-    // DATABASE is leidend voor setcode.
-    if ($("set")) {
-      $("set").value = databaseSetCode(card) || card?.set || "";
-    }
+    if ($("q")) $("q").value = clean(card?.name) || scan.name;
+    if ($("set")) $("set").value = cardSetCode(card) || scan.set || "";
+    if ($("number")) $("number").value = clean(card?.number || card?.localId) || collector.number;
 
     if ($("language") && [...$("language").options].some(o => o.value === scan.language)) {
       $("language").value = scan.language;
     }
 
-    const suggestion = normalizeVariant(scan.finish);
-    ensureVariant(suggestion);
-    if ($("variant")) $("variant").value = suggestion;
+    const variant = normalizeVariant(scan.finish);
+    ensureVariant(variant);
+    if ($("variant")) $("variant").value = variant;
   }
 
-  function showVariantChooser(scan, card) {
-    const box = resolverBox();
+  function variantChooser(scan, card) {
+    const el = box();
     const suggested = normalizeVariant(scan.finish);
     const collector = splitCollector(scan.collector);
 
-    box.className = "zc-resolver";
-    box.innerHTML = `
-      <h3>✅ Exacte basiskaart gevonden</h3>
+    el.className = "zc-resolver";
+    el.innerHTML = `
+      <h3>✅ Kaart uit database bevestigd</h3>
       <p>
-        De kaartdatabase heeft <strong>${clean(card?.name)}</strong>
-        <strong>${collector.full}</strong> bevestigd.
-        De set uit de database is nu leidend.
+        De basiskaart is nu gekoppeld aan één catalogusitem.
+        Set en kaartnummer van de database zijn leidend; de oorspronkelijke AI-setgok niet.
       </p>
-      <div class="zc-resolver-meta">
-        Database-set: <strong>${clean(card?.set) || "onbekend"}</strong>
-        ${databaseSetCode(card) ? ` · <strong>${databaseSetCode(card)}</strong>` : ""}<br>
-        Scanner-set (alleen hint): ${scan.scannerSet || "onbekend"}<br>
+      <div class="zc-meta">
+        Kaart: <strong>${clean(card?.name)}</strong><br>
+        Set: <strong>${clean(card?.set || card?.setName) || "databasekaart"}</strong>
+        ${cardSetCode(card) ? ` · <strong>${cardSetCode(card)}</strong>` : ""}<br>
+        Kaartnummer: <strong>${clean(card?.number || card?.localId || collector.number)}</strong><br>
         Scanner-uitvoering: ${scan.finish || "onbekend"}
       </div>
       <div class="zc-variant-grid">
         ${VARIANTS.map(([value,label]) => `
-          <button type="button"
-            class="zc-variant-btn ${value === suggested ? "active" : ""}"
-            data-zc-variant="${value}">${label}</button>
+          <button type="button" class="zc-variant-btn ${value === suggested ? "active" : ""}" data-zc-v="${value}">${label}</button>
         `).join("")}
       </div>
     `;
 
-    box.querySelectorAll("[data-zc-variant]").forEach(btn => {
+    el.querySelectorAll("[data-zc-v]").forEach(btn => {
       btn.addEventListener("click", () => {
-        const value = btn.dataset.zcVariant;
+        const value = btn.dataset.zcV;
         ensureVariant(value);
         if ($("variant")) {
           $("variant").value = value;
           $("variant").dispatchEvent(new Event("change", { bubbles: true }));
         }
-        box.querySelectorAll("[data-zc-variant]").forEach(x => {
-          x.classList.toggle("active", x === btn);
-        });
+        el.querySelectorAll("[data-zc-v]").forEach(b => b.classList.toggle("active", b === btn));
         try { if (typeof renderDetail === "function") renderDetail(); } catch (e) {}
       });
     });
   }
 
-  function showMultiple(scan, matches, reason = "multiple") {
-    const box = resolverBox();
-    box.className = "zc-resolver warn";
-
-    const text = reason === "fallback"
-      ? `De scannergegevens zijn niet betrouwbaar genoeg voor een automatische keuze.
-         Daarom toont de Price Checker alle databasekaarten met deze Pokémonnaam.
-         Kies zelf de juiste kaart op basis van de afbeelding en set.`
-      : `Meerdere databasekaarten passen exact genoeg bij de scan.
-         Kies zelf de juiste kaart op basis van de afbeelding en set.`;
-
-    box.innerHTML = `
-      <h3>🔎 Kies de juiste kaart</h3>
-      <p>${text}</p>
-      <div class="zc-resolver-meta">
-        Scanner dacht: <strong>${scan.name}</strong> ·
-        <strong>${scan.collector || "geen betrouwbaar nummer"}</strong> ·
-        sethint <strong>${scan.scannerSet || "onbekend"}</strong><br>
-        Databasekandidaten: <strong>${matches.length}</strong><br>
-        <strong>Belangrijk:</strong> er wordt nu niets automatisch als juiste set bevestigd.
-      </div>
-    `;
-  }
-
-  function showNone(scan, pool) {
-    const box = resolverBox();
-    box.className = "zc-resolver bad";
-    box.innerHTML = `
-      <h3>⚠️ Nog geen exacte catalogusmatch</h3>
+  function candidateMessage(scan, cards) {
+    const el = box();
+    el.className = "zc-resolver warn";
+    el.innerHTML = `
+      <h3>🔎 Kies de juiste databasekaart</h3>
       <p>
-        Er is geen databasekaart bevestigd met exact
-        <strong>${scan.name}</strong> en <strong>${scan.collector}</strong>.
-        Er wordt bewust geen andere set gekozen.
+        De automatische controle kon niet veilig tot één kaart komen.
+        Daarom worden echte cataloguskaarten getoond. Kies de juiste op afbeelding en set.
       </p>
-      <div class="zc-resolver-meta">
-        Scanner-set: ${scan.scannerSet || "onbekend"}<br>
-        Kandidaten op naam/nummer bekeken: ${pool.length}
+      <div class="zc-meta">
+        AI-hint: ${scan.name || "onbekend"} · ${scan.collector || "nummer onzeker"} · ${scan.set || "set onzeker"}<br>
+        Kandidaten: <strong>${cards.length}</strong><br>
+        Er wordt bewust geen set gegokt.
       </div>
     `;
   }
 
-  function samePokemonName(scan, card) {
-    const a = norm(scan?.name);
-    const b = norm(card?.name);
-    if (!a || !b) return false;
-    return a === b || a.includes(b) || b.includes(a);
+  function noCandidates(scan) {
+    const el = box();
+    el.className = "zc-resolver bad";
+    el.innerHTML = `
+      <h3>⚠️ Geen veilige catalogusmatch</h3>
+      <p>
+        Er is niets automatisch geselecteerd. Scan de kaart nogmaals met de volledige kaart in beeld.
+      </p>
+      <div class="zc-meta">
+        Gelezen naam: ${scan.name || "onbekend"}<br>
+        Gelezen nummer: ${scan.collector || "onbekend"}
+      </div>
+    `;
   }
 
-  function candidateSortScore(scan, card) {
-    let score = 0;
-    const collector = splitCollector(scan.collector);
-
-    if (samePokemonName(scan, card)) score += 100;
-
-    const scanNum = normNumber(collector.number);
-    const cardNum = normNumber(card?.number || card?.printedNumber);
-    if (scanNum && cardNum) {
-      if (scanNum === cardNum) score += 18;
-      else {
-        const a = Number(scanNum.replace(/\D/g, ""));
-        const b = Number(cardNum.replace(/\D/g, ""));
-        if (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) === 1) score += 7;
-      }
-    }
-
-    const scanTotal = normNumber(collector.total);
-    const cardTotal = normNumber(databaseSetTotal(card));
-    if (scanTotal && cardTotal && scanTotal === cardTotal) score += 15;
-
-    const hint = norm(scan.scannerSet);
-    if (hint) {
-      const db = norm(`${card?.set || ""} ${databaseSetCode(card)}`);
-      if (db.includes(hint) || hint.includes(db)) score += 2; // Alleen een mini-bonus.
-    }
-
-    const date = Date.parse(card?.releaseDate || "");
-    if (Number.isFinite(date)) score += Math.min(4, Math.max(0, (date - Date.parse("2000-01-01")) / 1e12));
-
-    return score;
-  }
-
-  async function broadNameFallback(scan) {
-    let cards = [];
-    try {
-      // Taal eerst instellen zodat de bestaande Price Checker in de juiste catalogus zoekt.
-      if ($("language") && [...$("language").options].some(o => o.value === scan.language)) {
-        $("language").value = scan.language;
-      }
-
-      // CRUCIAAL: geen scanner-set en geen scanner-nummer gebruiken in deze fallback.
-      cards = await zcSearchDirect(scan.name, "", "", "");
-      if (typeof zcValidateCards === "function") cards = zcValidateCards(cards);
-
-      cards = (cards || [])
-        .filter(card => samePokemonName(scan, card))
-        .sort((a, b) => candidateSortScore(scan, b) - candidateSortScore(scan, a));
-
-      // Dubbele database-items verwijderen.
-      const seen = new Set();
-      cards = cards.filter(card => {
-        const key = `${card?.id || ""}|${card?.setId || card?.set || ""}|${card?.number || ""}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      return cards.slice(0, 24);
-    } catch (e) {
-      console.error("Candidate Resolver broad-name fallback error:", e);
-      return [];
-    }
-  }
-
-  function activateManualSelection(scan) {
-    window.ZC_RESOLVER_PENDING_SCAN = scan;
-
-    // Wrap de bestaande kaartkeuze één keer.
-    if (!window.ZC_RESOLVER_SELECT_WRAPPED && typeof window.selectCard === "function") {
-      const originalSelectCard = window.selectCard;
-
-      window.selectCard = function(i) {
-        originalSelectCard(i);
-
-        const pending = window.ZC_RESOLVER_PENDING_SCAN;
-        if (!pending || !window.selectedCard) return;
-
-        setSearchFields(pending, window.selectedCard);
-        showVariantChooser(pending, window.selectedCard);
-        window.ZC_RESOLVER_PENDING_SCAN = null;
-
-        const box = resolverBox();
-        box.scrollIntoView({ behavior: "smooth", block: "start" });
-      };
-
-      window.ZC_RESOLVER_SELECT_WRAPPED = true;
-    }
-  }
-
-  async function waitForPriceChecker() {
-    for (let i = 0; i < 80; i++) {
+  async function waitForPc() {
+    for (let i = 0; i < 100; i++) {
       if (
         typeof zcSearchDirect === "function" &&
         typeof renderStrip === "function" &&
@@ -395,96 +263,138 @@
     return false;
   }
 
+  async function search(name, set, number) {
+    try {
+      let cards = await zcSearchDirect(name || "", set || "", number || "", "");
+      if (typeof zcValidateCards === "function") cards = zcValidateCards(cards);
+      return Array.isArray(cards) ? cards : [];
+    } catch (e) {
+      console.error("Scanner resolver search failed", e);
+      return [];
+    }
+  }
+
+  function activateManual(scan) {
+    window.ZC_PENDING_SCAN = scan;
+    if (window.ZC_SELECT_WRAPPED || typeof selectCard !== "function") return;
+
+    const original = selectCard;
+    selectCard = function(i) {
+      original(i);
+      if (!window.ZC_PENDING_SCAN || !selectedCard) return;
+      const pending = window.ZC_PENDING_SCAN;
+      setFields(pending, selectedCard);
+      variantChooser(pending, selectedCard);
+      window.ZC_PENDING_SCAN = null;
+      box().scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.ZC_SELECT_WRAPPED = true;
+  }
+
   async function boot() {
     const scan = scanPayload();
     if (!scan.enabled) return;
 
-    // Payload veilig vastleggen vóór URL wordt opgeschoond.
     window.ZC_LAST_SCANNER_IMPORT = scan;
     history.replaceState({}, document.title, location.pathname + location.hash);
 
-    if (!(await waitForPriceChecker())) {
-      const box = resolverBox();
-      box.className = "zc-resolver bad";
-      box.innerHTML = "<h3>Price Checker nog niet klaar</h3><p>Ververs de pagina één keer.</p>";
+    if (!(await waitForPc())) {
+      noCandidates(scan);
       return;
     }
 
     const collector = splitCollector(scan.collector);
-    if (!scan.name || !collector.number || !collector.total) {
-      showNone(scan, []);
-      return;
-    }
 
-    // CRUCIAAL:
-    // De scanner-set wordt hier bewust NIET gebruikt.
-    // Zoek breed op naam + nummer en laat de database het settotaal bevestigen.
-    let pool = [];
-    try {
-      pool = await zcSearchDirect(scan.name, "", collector.number, "");
-      if (typeof zcValidateCards === "function") pool = zcValidateCards(pool);
-    } catch (e) {
-      console.error("Candidate Resolver search error:", e);
-    }
+    // 1. Preferred path: backend has catalog-verified set code.
+    if (scan.name && scan.set && collector.number) {
+      const withSet = await search(scan.name, scan.set, collector.number);
+      const exact = withSet.filter(c =>
+        sameName(scan.name, c) &&
+        sameNumber(collector.number, c)
+      );
 
-    const matches = (pool || []).filter(card => exactIdentity(scan, card));
-
-    if (matches.length === 1) {
-      currentCards = matches;
-      selectedCard = matches[0];
-      setSearchFields(scan, selectedCard);
-      renderStrip();
-      renderDetail();
-      showVariantChooser(scan, selectedCard);
-      resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    if (matches.length > 1) {
-      currentCards = matches;
-      selectedCard = null;
-      renderStrip();
-      if ($("detailPanel")) {
-        $("detailPanel").innerHTML =
-          '<div class="placeholder"><strong>Meerdere exacte kandidaten.</strong><br>Kies de juiste kaart op basis van afbeelding en set.</div>';
-      }
-      activateManualSelection(scan);
-      showMultiple(scan, matches, "multiple");
-      resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    // Geen exacte match: NIET stoppen en NIET gokken.
-    // Zoek nu alleen op Pokémonnaam en laat de gebruiker de juiste databasekaart kiezen.
-    const fallbackCards = await broadNameFallback(scan);
-
-    if (fallbackCards.length) {
-      currentCards = fallbackCards;
-      selectedCard = null;
-      renderStrip();
-
-      if ($("detailPanel")) {
-        $("detailPanel").innerHTML =
-          '<div class="placeholder"><strong>Kies de juiste kaart uit de database.</strong><br>De scanner-set en het scanner-nummer zijn in deze stap bewust niet leidend.</div>';
+      if (exact.length === 1) {
+        currentCards = exact;
+        selectedCard = exact[0];
+        setFields(scan, selectedCard);
+        renderStrip();
+        renderDetail();
+        variantChooser(scan, selectedCard);
+        box().scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
       }
 
-      activateManualSelection(scan);
-      showMultiple(scan, fallbackCards, "fallback");
-      resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
+      if (exact.length > 1) {
+        currentCards = exact;
+        selectedCard = null;
+        renderStrip();
+        activateManual(scan);
+        candidateMessage(scan, exact);
+        box().scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    // 2. Name + number + printed total, without trusting set.
+    if (scan.name && collector.number) {
+      const byNumber = await search(scan.name, "", collector.number);
+      const exactNumber = byNumber.filter(c =>
+        sameName(scan.name, c) &&
+        sameNumber(collector.number, c) &&
+        sameTotal(collector.total, c)
+      );
+
+      if (exactNumber.length === 1) {
+        currentCards = exactNumber;
+        selectedCard = exactNumber[0];
+        setFields(scan, selectedCard);
+        renderStrip();
+        renderDetail();
+        variantChooser(scan, selectedCard);
+        box().scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      if (exactNumber.length > 1) {
+        currentCards = exactNumber;
+        selectedCard = null;
+        renderStrip();
+        activateManual(scan);
+        candidateMessage(scan, exactNumber);
+        box().scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    // 3. Safe fallback: throw away guessed set and guessed number; search only by Pokemon name.
+    if (scan.name) {
+      let all = await search(scan.name, "", "");
+      all = all.filter(c => sameName(scan.name, c));
+
+      const seen = new Set();
+      all = all.filter(c => {
+        const k = `${clean(c?.id)}|${clean(c?.setId || c?.set)}|${clean(c?.number || c?.localId)}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      }).slice(0, 30);
+
+      if (all.length) {
+        currentCards = all;
+        selectedCard = null;
+        renderStrip();
+        activateManual(scan);
+        candidateMessage(scan, all);
+        box().scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
     }
 
     currentCards = [];
     selectedCard = null;
     renderStrip();
-
-    if ($("detailPanel")) {
-      $("detailPanel").innerHTML =
-        '<div class="placeholder"><strong>Geen kaartkandidaten gevonden.</strong><br>Probeer dezelfde kaart nogmaals te scannen.</div>';
-    }
-
-    showNone(scan, []);
-    resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
+    noCandidates(scan);
+    box().scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   if (document.readyState === "loading") {
