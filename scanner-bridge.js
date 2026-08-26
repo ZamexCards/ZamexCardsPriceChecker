@@ -96,6 +96,55 @@
     return text.includes(wanted);
   }
 
+  function selectedCardExactMatch(scan) {
+    try {
+      if (typeof selectedCard === "undefined" || !selectedCard) return false;
+
+      const wanted = normalizeCollector(scan.collector);
+      const wantedName = clean(scan.name).toLowerCase();
+      if (!wanted || !wanted.includes("/")) return false;
+
+      const [wantedNumber, wantedTotal] = wanted.split("/");
+      const cardNumber = normalizeCollector(selectedCard.number || selectedCard.localId || "");
+      const cardTotal = normalizeCollector(
+        selectedCard.printedTotal ||
+        selectedCard.setTotal ||
+        selectedCard.total ||
+        ""
+      );
+      const cardName = clean(selectedCard.name).toLowerCase();
+
+      const numberOk = cardNumber === wantedNumber;
+      const totalOk = cardTotal === wantedTotal;
+      const nameOk = !wantedName || cardName === wantedName || cardName.includes(wantedName);
+
+      return numberOk && totalOk && nameOk;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function applyDatabaseIdentityToSearchFields() {
+    try {
+      if (typeof selectedCard === "undefined" || !selectedCard) return;
+      const setField = $("set");
+      const numberField = $("number");
+
+      const databaseSet =
+        clean(selectedCard.setCode) ||
+        clean(selectedCard.ptcgoCode) ||
+        clean(selectedCard.set) ||
+        clean(selectedCard.setId);
+
+      if (databaseSet && setField) setField.value = databaseSet;
+      if (numberField && selectedCard.number) numberField.value = clean(selectedCard.number);
+    } catch (e) {}
+  }
+
+  function exactMatch(scan) {
+    return selectedCardExactMatch(scan) || detailHasCollector(scan.collector);
+  }
+
   async function runSearch() {
     if (typeof window.searchCards === "function") {
       await window.searchCards();
@@ -164,7 +213,8 @@
         `).join("")}
       </div>
       <div class="zc-scan-meta">
-        <span class="zc-exact-ok">Exacte kaartmatch gecontroleerd.</span><br>
+        <span class="zc-exact-ok">Exacte kaartmatch gecontroleerd op naam + volledig kaartnummer.</span><br>
+        Set/setcode wordt overgenomen uit de kaartdatabase als die afwijkt van de scanner.<br>
         Scanner dacht: <strong>${clean(scan.finish) || "Onbekend"}</strong>.
         Jouw keuze is leidend voor de prijs en kaartenlijst.
       </div>
@@ -232,7 +282,8 @@
     number.value = scan.collector;
     await runSearch();
 
-    if (detailHasCollector(scan.collector)) {
+    if (exactMatch(scan)) {
+      applyDatabaseIdentityToSearchFields();
       renderVariantChooser(scan);
       return;
     }
@@ -243,7 +294,8 @@
     number.value = numerator(scan.collector);
     await runSearch();
 
-    if (detailHasCollector(scan.collector)) {
+    if (exactMatch(scan)) {
+      applyDatabaseIdentityToSearchFields();
       renderVariantChooser(scan);
       return;
     }
@@ -254,7 +306,8 @@
     number.value = numerator(scan.collector);
     await runSearch();
 
-    if (detailHasCollector(scan.collector)) {
+    if (exactMatch(scan)) {
+      applyDatabaseIdentityToSearchFields();
       renderVariantChooser(scan);
       return;
     }
