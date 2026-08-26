@@ -6,7 +6,7 @@
 <title>ZamexCards Auto Scanner</title>
 <style>
 :root{--navy:#062447;--panel:#0a335d;--green:#49d05b;--blue:#2c9cf0;--muted:#bcd4ea;--danger:#ff6b6b;--warn:#ffc857}
-*{box-sizing:border-box}body{margin:0;background:#031a31;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:12px}.panel{background:var(--panel);border:1px solid #2fcf70;border-radius:20px;padding:16px;margin-bottom:14px}.camera{position:relative;background:#03182d;border-radius:16px;overflow:hidden;width:min(100%,520px);aspect-ratio:63/88;margin:0 auto;display:grid;place-items:center}.camera video,.camera img{width:100%;height:100%;object-fit:cover;background:#03182d}.camera img{display:none}.guide{position:absolute;left:8%;right:8%;top:5%;bottom:5%;border:2px solid var(--green);border-radius:15px;pointer-events:none}.guide.scan{border-color:var(--warn);box-shadow:0 0 24px rgba(255,200,87,.6)}.row{display:grid;grid-template-columns:1fr 70px 70px;gap:10px;margin-top:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}button,label{border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;text-align:center;cursor:pointer}.primary{background:var(--green);color:#fff}.blue{background:var(--blue);color:#fff}.dark{background:#0a2e51;color:#fff;border:1px solid #396487}.status{margin-top:12px;padding:13px;border-radius:12px;background:#082b4c}.ok{border-left:5px solid var(--green)}.warn{border-left:5px solid var(--warn)}.bad{border-left:5px solid var(--danger)}.result{display:none}.grid{display:grid;grid-template-columns:120px 1fr;gap:16px}.thumb{width:120px;border-radius:12px}.pill{display:inline-block;padding:7px 10px;border:1px solid #4d7498;border-radius:99px;margin:3px}.auto{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;background:#062846;padding:12px;border-radius:12px}.switch{width:50px;height:28px;border-radius:99px;background:#35b957;position:relative}.switch:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;right:3px}.switch.off{background:#35536d}.switch.off:after{left:3px;right:auto}input{display:none}
+*{box-sizing:border-box}body{margin:0;background:#031a31;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:12px}.panel{background:var(--panel);border:1px solid #2fcf70;border-radius:20px;padding:16px;margin-bottom:14px}.camera{position:relative;background:#03182d;border-radius:16px;overflow:hidden;width:min(100%,520px);aspect-ratio:63/88;margin:0 auto;display:grid;place-items:center}.camera video,.camera img{width:100%;height:100%;object-fit:contain;background:#03182d}.camera img{display:none}.guide{position:absolute;left:8%;right:8%;top:5%;bottom:5%;border:2px solid var(--green);border-radius:15px;pointer-events:none}.guide.scan{border-color:var(--warn);box-shadow:0 0 24px rgba(255,200,87,.6)}.row{display:grid;grid-template-columns:1fr 70px 70px;gap:10px;margin-top:12px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}button,label{border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;text-align:center;cursor:pointer}.primary{background:var(--green);color:#fff}.blue{background:var(--blue);color:#fff}.dark{background:#0a2e51;color:#fff;border:1px solid #396487}.status{margin-top:12px;padding:13px;border-radius:12px;background:#082b4c}.ok{border-left:5px solid var(--green)}.warn{border-left:5px solid var(--warn)}.bad{border-left:5px solid var(--danger)}.result{display:none}.grid{display:grid;grid-template-columns:120px 1fr;gap:16px}.thumb{width:120px;border-radius:12px}.pill{display:inline-block;padding:7px 10px;border:1px solid #4d7498;border-radius:99px;margin:3px}.auto{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;background:#062846;padding:12px;border-radius:12px}.switch{width:50px;height:28px;border-radius:99px;background:#35b957;position:relative}.switch:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:3px;right:3px}.switch.off{background:#35536d}.switch.off:after{left:3px;right:auto}input{display:none}
 @media(max-width:600px){.grid{grid-template-columns:90px 1fr}.thumb{width:90px}.row2{grid-template-columns:1fr}.camera{width:100%;aspect-ratio:63/88}}
 
 .candidate-panel{display:none}.candidate-intro{color:var(--muted);line-height:1.5}
@@ -22,6 +22,59 @@
 .add-note,.catalog-note{margin-top:8px;color:#bcd4ea;font-size:13px;line-height:1.4}
 @media(max-width:600px){.candidates{grid-template-columns:1fr}.variant-grid{grid-template-columns:1fr 1fr}}
 
+
+.scan-loading{
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:14px;
+  background:rgba(3,24,45,.72);
+  z-index:8;
+  backdrop-filter:blur(1px);
+}
+.scan-loading.show{display:flex}
+.scan-spinner{
+  width:58px;
+  height:58px;
+  border:6px solid rgba(73,208,91,.22);
+  border-top-color:var(--green);
+  border-radius:50%;
+  animation:zcspin .8s linear infinite;
+  box-shadow:0 0 18px rgba(73,208,91,.35);
+}
+.scan-loading-text{
+  color:#fff;
+  font-weight:800;
+  font-size:16px;
+  text-align:center;
+}
+@keyframes zcspin{to{transform:rotate(360deg)}}
+
+
+.pricechecker-link-wrap{
+  margin-top:18px;
+  padding-top:4px;
+}
+.pricechecker-link{
+  display:block;
+  width:100%;
+  box-sizing:border-box;
+  text-align:center;
+  text-decoration:none;
+  background:linear-gradient(135deg,#2fc94f,#58df67);
+  color:#fff;
+  border:1px solid #67ed79;
+  border-radius:14px;
+  padding:16px 14px;
+  font-size:18px;
+  font-weight:900;
+  box-shadow:0 8px 22px rgba(47,201,79,.18);
+}
+.pricechecker-link:active{transform:translateY(1px)}
+
 </style>
 </head>
 <body>
@@ -31,11 +84,14 @@
 <p style="color:var(--muted)">Houd de kaart in het kader. De scan start vanzelf.</p>
 
 <div class="camera">
-<video id="cam" autoplay playsinline muted webkit-playsinline></video>
+<video id="cam" autoplay playsinline muted></video>
 <img id="preview">
 <div class="guide" id="guide"></div>
+<div id="scanLoading" class="scan-loading">
+  <div class="scan-spinner"></div>
+  <div id="scanLoadingText" class="scan-loading-text">Foto wordt verwerkt…</div>
 </div>
-<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">Geen beeld? Tik op <strong>Camera herstarten</strong>. Controleer ook de camera-toestemming van je browser.</div>
+</div>
 
 <div class="auto">
 <div><strong>⚡ Automatisch scannen</strong><br><small style="color:var(--muted)">Standaard aan</small></div>
@@ -89,6 +145,12 @@
 <div class="add-note" id="addNote">Na toevoegen staat deze kaart in dezelfde kaartenlijst als kaarten die je handmatig in de Price Checker toevoegt.</div>
 </section>
 
+<div class="pricechecker-link-wrap">
+<a class="pricechecker-link" href="https://zamexcards.github.io/ZamexCardsPriceChecker/">
+  💚 Bekijk mijn kaartenlijst in de Price Checker
+</a>
+</div>
+
 <iframe id="listReceiver" src="https://zamexcards.github.io/ZamexCardsPriceChecker/list-receiver.html"
 title="ZamexCards kaartenlijst koppeling" style="display:none;width:0;height:0;border:0"></iframe>
 </div>
@@ -101,79 +163,42 @@ let catalogCard=null,selectedVariant="Basic / Normaal",priceInfo=null,pendingAdd
 const VARIANTS=["Basic / Normaal","Holo","Reverse Holo","Poké Ball","Great Ball","Master Ball"];
 
 function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
-function schedule(ms=500){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
-async function waitForVideoReady(video,timeoutMs=5000){
- if(video.readyState>=1 && video.videoWidth>0)return;
- await new Promise((resolve,reject)=>{
-  let done=false;
-  const finish=(ok)=>{
-   if(done)return;done=true;
-   clearTimeout(t);
-   video.removeEventListener("loadedmetadata",onReady);
-   video.removeEventListener("canplay",onReady);
-   ok?resolve():reject(new Error("Camera gaf geen videobeeld."));
-  };
-  const onReady=()=>{ if(video.videoWidth>0)finish(true) };
-  const t=setTimeout(()=>finish(false),timeoutMs);
-  video.addEventListener("loadedmetadata",onReady,{once:false});
-  video.addEventListener("canplay",onReady,{once:false});
- });
+function showLoading(message="Foto wordt verwerkt…"){
+ const box=$("scanLoading");
+ if(!box)return;
+ $("scanLoadingText").textContent=message;
+ box.classList.add("show");
 }
-async function openCameraStream(){
- if(!navigator.mediaDevices?.getUserMedia)throw new Error("Deze browser ondersteunt de camera niet.");
- const attempts=[
-  {video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false},
-  {video:{facingMode:{ideal:"environment"}},audio:false},
-  {video:true,audio:false}
- ];
- let lastError=null;
- for(const constraints of attempts){
-  try{return await navigator.mediaDevices.getUserMedia(constraints)}
-  catch(e){lastError=e}
- }
- throw lastError||new Error("Camera kon niet worden geopend.");
+function hideLoading(){
+ const box=$("scanLoading");
+ if(box)box.classList.remove("show");
 }
+function schedule(ms=1100){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
 async function start(){
  clearTimeout(timer);result=null;catalogCard=null;priceInfo=null;pendingAddId=null;
+ hideLoading();
  $("candidatePanel").style.display="none";$("result").style.display="none";
  $("addList").classList.remove("added-ok");$("addList").textContent="➕ Toevoegen aan kaartenlijst";$("addList").disabled=false;
- status("Camera openen…","warn");
  try{
   if(stream)stream.getTracks().forEach(t=>t.stop());
-  stream=null;
-  const video=$("cam");
-  video.pause();
-  video.srcObject=null;
-  video.setAttribute("playsinline","");
-  video.setAttribute("autoplay","");
-  video.muted=true;
-
-  stream=await openCameraStream();
-  video.srcObject=stream;
-  video.style.display="block";
+  stream=await navigator.mediaDevices.getUserMedia({
+    video:{
+      facingMode:{ideal:"environment"},
+      width:{ideal:1280},
+      height:{ideal:1920}
+    },
+    audio:false
+  });
+  $("cam").srcObject=stream;
+  $("cam").style.display="block";
   $("preview").style.display="none";
   $("guide").style.display="block";
-
-  try{await video.play()}catch(e){}
-  await waitForVideoReady(video,5000);
-
-  // Force one extra play after metadata on Android Chrome/Samsung browsers.
-  try{await video.play()}catch(e){}
+  await $("cam").play();
   await initZoom();
-
-  if(!video.videoWidth || !video.videoHeight){
-   throw new Error("Camera is geopend maar geeft geen beeld.");
-  }
-
   status("Houd de kaart even stil…","ok");
-  schedule(700);
+  schedule(1100);
  }catch(e){
-  const msg=(e?.name==="NotAllowedError")
-   ?"Camera-toegang is geblokkeerd. Sta camera toe voor deze website en laad de pagina opnieuw."
-   :(e?.name==="NotFoundError")
-   ?"Geen camera gevonden op dit apparaat."
-   :(e?.message||"Camera niet beschikbaar. Gebruik galerij.");
-  status(msg,"bad");
+  status("Camera niet beschikbaar. Gebruik galerij.","bad")
  }
 }
 async function initZoom(){
@@ -190,14 +215,20 @@ function frame(){
 }
 async function scan(isAuto=false,data=null){
  if(busy||result)return;const f=data||frame();if(!f){schedule(500);return}
- busy=true;clearTimeout(timer);$("guide").classList.add("scan");status(isAuto?"Automatische scan bezig…":"Scan bezig…","warn");
+ busy=true;clearTimeout(timer);$("guide").classList.add("scan");
+ showLoading(data?"Foto wordt verwerkt…":(isAuto?"Kaart wordt automatisch verwerkt…":"Kaart wordt verwerkt…"));
+ status(isAuto?"Automatische scan bezig…":"Scan bezig…","warn");
  try{
   const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:f})});
   const d=await r.json();if(!r.ok||!d?.found)throw new Error(d?.error||"Geen kaart gevonden");
   image=f;result=d;$("preview").src=image;$("preview").style.display="block";$("cam").style.display="none";$("guide").style.display="none";
   await handleScanResult(d);status("Kaart herkend.","ok");
- }catch(e){result=null;status((e.message||"Scan mislukt")+(auto?" — nieuwe poging volgt.":""),"bad");if(auto)schedule(900)}
- finally{busy=false;$("guide").classList.remove("scan")}
+ }catch(e){result=null;status((e.message||"Scan mislukt")+(auto?" — nieuwe poging volgt.":""),"bad");if(auto)schedule(1800)}
+ finally{
+  hideLoading();
+  busy=false;
+  $("guide").classList.remove("scan")
+ }
 }
 function langCode(x){
  x=String(x||"").toLowerCase();
@@ -289,9 +320,26 @@ window.addEventListener("message",e=>{
  else{$("addList").disabled=false;$("addList").textContent="➕ Toevoegen aan kaartenlijst";status(e.data.error||"Toevoegen is mislukt.","bad")}
 });
 $("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
-$("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(350);else clearTimeout(timer)};
-$("photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f);e.target.value=""};
-$("gallery").onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>scan(false,rd.result);rd.readAsDataURL(f)};
+$("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(700);else clearTimeout(timer)};
+$("photo").onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ showLoading("Foto wordt geladen…");
+ status("Foto wordt geladen…","warn");
+ const rd=new FileReader();
+ rd.onload=()=>scan(false,rd.result);
+ rd.onerror=()=>{hideLoading();status("Foto kon niet worden geladen.","bad")};
+ rd.readAsDataURL(f);
+ e.target.value=""
+};
+$("gallery").onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ showLoading("Bestand wordt geladen…");
+ status("Bestand wordt geladen…","warn");
+ const rd=new FileReader();
+ rd.onload=()=>scan(false,rd.result);
+ rd.onerror=()=>{hideLoading();status("Bestand kon niet worden geladen.","bad")};
+ rd.readAsDataURL(f);
+};
 $("next").onclick=()=>{$("result").style.display="none";$("candidatePanel").style.display="none";result=null;catalogCard=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
 $("addList").onclick=addToSharedList;start();
 </script>
