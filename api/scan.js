@@ -85,6 +85,38 @@ const CARD_SCHEMA = {
   ]
 };
 
+
+const COLLECTOR_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    card_number: { type: "string" },
+    set_total: { type: "string" },
+    collector_number: { type: "string" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    notes: { type: "string" }
+  },
+  required: [
+    "card_number",
+    "set_total",
+    "collector_number",
+    "confidence",
+    "notes"
+  ]
+};
+
+const COLLECTOR_PROMPT = [
+  "You are a Pokemon TCG collector-number reader.",
+  "Your ONLY task is to read the printed collector-number fraction from the bottom edge of the photographed card.",
+  "Examples: 012/086, 074/187, 230/207, TG14/TG30.",
+  "Do not identify the set from memory.",
+  "Do not use HP, attack damage, Pokedex number, copyright year, regulation mark, rarity, anniversary logos or other numbers.",
+  "If the exact fraction is not visibly readable, return empty strings and low confidence instead of guessing.",
+  "card_number = numerator exactly as printed.",
+  "set_total = denominator exactly as printed.",
+  "collector_number = complete numerator/denominator exactly as printed."
+].join("\n");
+
 const FINISH_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -255,6 +287,50 @@ async function identifyCard(imageDataUrl) {
   return normalizeNumberFields(JSON.parse(outputText));
 }
 
+
+async function verifyCollectorNumber(imageDataUrl) {
+  const response = await client.responses.create({
+    model: MODEL,
+    temperature: 0,
+    max_output_tokens: 300,
+    input: [
+      {
+        role: "system",
+        content: [{ type: "input_text", text: COLLECTOR_PROMPT }]
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "Read only the exact collector-number fraction printed at the bottom of this card."
+          },
+          {
+            type: "input_image",
+            image_url: imageDataUrl,
+            detail: "high"
+          }
+        ]
+      }
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "pokemon_collector_number",
+        strict: true,
+        schema: COLLECTOR_SCHEMA
+      }
+    }
+  });
+
+  const outputText = clean(response.output_text);
+  if (!outputText) {
+    throw new Error(`Collector-number verification returned no output. response_id=${clean(response.id)}`);
+  }
+
+  return JSON.parse(outputText);
+}
+
 async function classifyFinish(imageDataUrl) {
   const response = await client.responses.create({
     model: MODEL,
@@ -324,8 +400,9 @@ export default async function handler(req, res) {
 
   try {
     // Identity and finish are independent, so run them in parallel for speed.
-    const [identityResult, finishResult] = await Promise.allSettled([
+    const [identityResult, collectorResult, finishResult] = await Promise.allSettled([
       identifyCard(imageDataUrl),
+      verifyCollectorNumber(imageDataUrl),
       classifyFinish(imageDataUrl)
     ]);
 
@@ -334,6 +411,33 @@ export default async function handler(req, res) {
     }
 
     const card = identityResult.value;
+
+    // Dedicated collector-number reader is more authoritative than the general identity pass.
+    // It may correct a wrong AI guess such as 007/073 -> 012/086.
+    if (collectorResult.status === "fulfilled") {
+      const verified = collectorResult.value || {};
+      const full = clean(verified.collector_number);
+      const match = full.match(/^([^/]+)\/([^/]+)$/);
+
+      if (match && Number(verified.confidence || 0) >= 0.72) {
+        card.card_number = clean(match[1]);
+        card.set_total = clean(match[2]);
+        card.collector_number = `${clean(match[1])}/${clean(match[2])}`;
+        card.collector_confidence = Number(verified.confidence || 0);
+        card.notes = [
+          clean(card.notes),
+          `Collector verified independently: ${card.collector_number}`
+        ].filter(Boolean).join(" | ").slice(0, 1200);
+      } else {
+        card.collector_confidence = Number(verified.confidence || 0);
+      }
+    } else {
+      card.collector_confidence = 0;
+      console.warn(
+        "Collector-number verification failed:",
+        collectorResult.reason?.message || String(collectorResult.reason || "")
+      );
+    }
 
     if (finishResult.status === "fulfilled") {
       const finish = finishResult.value;
