@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { resolveCatalogCard } from "../lib/catalog-resolver.js";
 
 export const config = {
   maxDuration: 30
@@ -57,7 +58,11 @@ const CARD_SCHEMA = {
     finish: { type: "string", enum: FINISHES },
     identity_confidence: { type: "number", minimum: 0, maximum: 1 },
     finish_confidence: { type: "number", minimum: 0, maximum: 1 },
-    notes: { type: "string" }
+    notes: { type: "string" },
+    hp: { type: "string" },
+    attack_names: { type: "array", items: { type: "string" } },
+    illustrator: { type: "string" },
+    regulation_mark: { type: "string" }
   },
   required: [
     "found",
@@ -72,7 +77,11 @@ const CARD_SCHEMA = {
     "finish",
     "identity_confidence",
     "finish_confidence",
-    "notes"
+    "notes",
+    "hp",
+    "attack_names",
+    "illustrator",
+    "regulation_mark"
   ]
 };
 
@@ -113,6 +122,10 @@ const SYSTEM_PROMPT = [
   "- For Asian cards, read the original script and combine it with artwork and collector number.",
   "- card_name must be the canonical English card or Pokemon name when confidently known.",
   "- printed_name should preserve the visible printed name.",
+  "- hp should be the visible HP number only, or empty if unreadable.",
+  "- attack_names should contain the visible attack names only; do not invent them.",
+  "- illustrator should be the printed illustrator name from the bottom of the card, or empty if unreadable.",
+  "- regulation_mark should be the visible regulation letter/mark, or empty if unreadable.",
   "- card_number is ONLY the numerator from the collector-number fraction printed at the bottom of the card.",
   "- set_total is ONLY the denominator from that SAME bottom collector-number fraction.",
   "- collector_number must be the complete visible bottom fraction, for example 012/086 or 074/187.",
@@ -310,11 +323,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const card = await identifyCard(imageDataUrl);
+    // Identity and finish are independent, so run them in parallel for speed.
+    const [identityResult, finishResult] = await Promise.allSettled([
+      identifyCard(imageDataUrl),
+      classifyFinish(imageDataUrl)
+    ]);
 
-    // Dedicated second pass for finish/foil. If it fails, keep the identity result.
-    try {
-      const finish = await classifyFinish(imageDataUrl);
+    if (identityResult.status !== "fulfilled") {
+      throw identityResult.reason || new Error("Kaartidentificatie mislukt.");
+    }
+
+    const card = identityResult.value;
+
+    if (finishResult.status === "fulfilled") {
+      const finish = finishResult.value;
 
       card.finish = finish.finish;
       card.finish_confidence = Number(finish.confidence || 0);
@@ -331,8 +353,57 @@ export default async function handler(req, res) {
           .join(" | ")
           .slice(0, 1000);
       }
-    } catch (finishError) {
-      console.warn("Dedicated finish scan failed:", finishError?.message || String(finishError));
+    } else {
+      console.warn(
+        "Dedicated finish scan failed:",
+        finishResult.reason?.message || String(finishResult.reason || "")
+      );
+    }
+
+    // NEW: AI is only a first-pass recognizer. The catalog becomes the source of truth.
+    try {
+      const resolved = await resolveCatalogCard({
+        imageDataUrl,
+        aiCard: card,
+        client,
+        model: MODEL
+      });
+
+      if (resolved?.resolved) {
+        card.card_name = resolved.card_name || card.card_name;
+        card.set_name = resolved.set_name || "";
+        card.set_code = resolved.set_code || "";
+        card.card_number = resolved.card_number || card.card_number;
+        card.set_total = resolved.set_total || card.set_total;
+        card.collector_number = resolved.collector_number || card.collector_number;
+        card.identity_confidence = Math.max(
+          Number(card.identity_confidence || 0),
+          Number(resolved.confidence || 0)
+        );
+        card.catalog_id = resolved.catalog_id || "";
+        card.catalog_match_method = resolved.method || "";
+        card.catalog_image = resolved.image || "";
+        card.catalog_release_date = resolved.release_date || "";
+        card.notes = [
+          clean(card.notes),
+          `Catalog verified: ${resolved.set_name || ""} ${resolved.collector_number || ""} (${resolved.method || "catalog"})`
+        ].filter(Boolean).join(" | ").slice(0, 1200);
+      } else {
+        // Never present a guessed set as fact when the catalog could not verify it.
+        card.set_name = "";
+        card.set_code = "";
+        card.notes = [
+          clean(card.notes),
+          `Catalog unresolved: ${clean(resolved?.reason)}`
+        ].filter(Boolean).join(" | ").slice(0, 1200);
+      }
+    } catch (catalogError) {
+      console.warn(
+        "Catalog resolver failed:",
+        catalogError?.message || String(catalogError || "")
+      );
+      card.set_name = "";
+      card.set_code = "";
     }
 
     return res.status(200).json(card);
