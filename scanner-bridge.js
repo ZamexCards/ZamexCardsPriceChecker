@@ -245,18 +245,26 @@
     });
   }
 
-  function showMultiple(scan, matches) {
+  function showMultiple(scan, matches, reason = "multiple") {
     const box = resolverBox();
     box.className = "zc-resolver warn";
+
+    const text = reason === "fallback"
+      ? `De scannergegevens zijn niet betrouwbaar genoeg voor een automatische keuze.
+         Daarom toont de Price Checker alle databasekaarten met deze Pokémonnaam.
+         Kies zelf de juiste kaart op basis van de afbeelding en set.`
+      : `Meerdere databasekaarten passen exact genoeg bij de scan.
+         Kies zelf de juiste kaart op basis van de afbeelding en set.`;
+
     box.innerHTML = `
-      <h3>🔎 Meerdere mogelijke kaarten gevonden</h3>
-      <p>
-        Naam en volledig kaartnummer passen bij meerdere database-items.
-        Kies hieronder in de gevonden kaarten de juiste afbeelding/set.
-      </p>
+      <h3>🔎 Kies de juiste kaart</h3>
+      <p>${text}</p>
       <div class="zc-resolver-meta">
-        Scanner: <strong>${scan.name}</strong> · <strong>${scan.collector}</strong><br>
-        ${matches.length} kandidaten gevonden. Er wordt niets automatisch gegokt.
+        Scanner dacht: <strong>${scan.name}</strong> ·
+        <strong>${scan.collector || "geen betrouwbaar nummer"}</strong> ·
+        sethint <strong>${scan.scannerSet || "onbekend"}</strong><br>
+        Databasekandidaten: <strong>${matches.length}</strong><br>
+        <strong>Belangrijk:</strong> er wordt nu niets automatisch als juiste set bevestigd.
       </div>
     `;
   }
@@ -276,6 +284,103 @@
         Kandidaten op naam/nummer bekeken: ${pool.length}
       </div>
     `;
+  }
+
+  function samePokemonName(scan, card) {
+    const a = norm(scan?.name);
+    const b = norm(card?.name);
+    if (!a || !b) return false;
+    return a === b || a.includes(b) || b.includes(a);
+  }
+
+  function candidateSortScore(scan, card) {
+    let score = 0;
+    const collector = splitCollector(scan.collector);
+
+    if (samePokemonName(scan, card)) score += 100;
+
+    const scanNum = normNumber(collector.number);
+    const cardNum = normNumber(card?.number || card?.printedNumber);
+    if (scanNum && cardNum) {
+      if (scanNum === cardNum) score += 18;
+      else {
+        const a = Number(scanNum.replace(/\D/g, ""));
+        const b = Number(cardNum.replace(/\D/g, ""));
+        if (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) === 1) score += 7;
+      }
+    }
+
+    const scanTotal = normNumber(collector.total);
+    const cardTotal = normNumber(databaseSetTotal(card));
+    if (scanTotal && cardTotal && scanTotal === cardTotal) score += 15;
+
+    const hint = norm(scan.scannerSet);
+    if (hint) {
+      const db = norm(`${card?.set || ""} ${databaseSetCode(card)}`);
+      if (db.includes(hint) || hint.includes(db)) score += 2; // Alleen een mini-bonus.
+    }
+
+    const date = Date.parse(card?.releaseDate || "");
+    if (Number.isFinite(date)) score += Math.min(4, Math.max(0, (date - Date.parse("2000-01-01")) / 1e12));
+
+    return score;
+  }
+
+  async function broadNameFallback(scan) {
+    let cards = [];
+    try {
+      // Taal eerst instellen zodat de bestaande Price Checker in de juiste catalogus zoekt.
+      if ($("language") && [...$("language").options].some(o => o.value === scan.language)) {
+        $("language").value = scan.language;
+      }
+
+      // CRUCIAAL: geen scanner-set en geen scanner-nummer gebruiken in deze fallback.
+      cards = await zcSearchDirect(scan.name, "", "", "");
+      if (typeof zcValidateCards === "function") cards = zcValidateCards(cards);
+
+      cards = (cards || [])
+        .filter(card => samePokemonName(scan, card))
+        .sort((a, b) => candidateSortScore(scan, b) - candidateSortScore(scan, a));
+
+      // Dubbele database-items verwijderen.
+      const seen = new Set();
+      cards = cards.filter(card => {
+        const key = `${card?.id || ""}|${card?.setId || card?.set || ""}|${card?.number || ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      return cards.slice(0, 24);
+    } catch (e) {
+      console.error("Candidate Resolver broad-name fallback error:", e);
+      return [];
+    }
+  }
+
+  function activateManualSelection(scan) {
+    window.ZC_RESOLVER_PENDING_SCAN = scan;
+
+    // Wrap de bestaande kaartkeuze één keer.
+    if (!window.ZC_RESOLVER_SELECT_WRAPPED && typeof window.selectCard === "function") {
+      const originalSelectCard = window.selectCard;
+
+      window.selectCard = function(i) {
+        originalSelectCard(i);
+
+        const pending = window.ZC_RESOLVER_PENDING_SCAN;
+        if (!pending || !window.selectedCard) return;
+
+        setSearchFields(pending, window.selectedCard);
+        showVariantChooser(pending, window.selectedCard);
+        window.ZC_RESOLVER_PENDING_SCAN = null;
+
+        const box = resolverBox();
+        box.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+
+      window.ZC_RESOLVER_SELECT_WRAPPED = true;
+    }
   }
 
   async function waitForPriceChecker() {
@@ -343,20 +448,42 @@
         $("detailPanel").innerHTML =
           '<div class="placeholder"><strong>Meerdere exacte kandidaten.</strong><br>Kies de juiste kaart op basis van afbeelding en set.</div>';
       }
-      showMultiple(scan, matches);
+      activateManualSelection(scan);
+      showMultiple(scan, matches, "multiple");
       resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
-    // Toon alleen de relevante naam/nummer-pool; geen willekeurige kaart selecteren.
-    currentCards = pool || [];
+    // Geen exacte match: NIET stoppen en NIET gokken.
+    // Zoek nu alleen op Pokémonnaam en laat de gebruiker de juiste databasekaart kiezen.
+    const fallbackCards = await broadNameFallback(scan);
+
+    if (fallbackCards.length) {
+      currentCards = fallbackCards;
+      selectedCard = null;
+      renderStrip();
+
+      if ($("detailPanel")) {
+        $("detailPanel").innerHTML =
+          '<div class="placeholder"><strong>Kies de juiste kaart uit de database.</strong><br>De scanner-set en het scanner-nummer zijn in deze stap bewust niet leidend.</div>';
+      }
+
+      activateManualSelection(scan);
+      showMultiple(scan, fallbackCards, "fallback");
+      resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    currentCards = [];
     selectedCard = null;
     renderStrip();
+
     if ($("detailPanel")) {
       $("detailPanel").innerHTML =
-        '<div class="placeholder"><strong>Geen exacte kaart geselecteerd.</strong><br>De scanner-set wordt niet gebruikt om een verkeerde kaart af te dwingen.</div>';
+        '<div class="placeholder"><strong>Geen kaartkandidaten gevonden.</strong><br>Probeer dezelfde kaart nogmaals te scannen.</div>';
     }
-    showNone(scan, pool || []);
+
+    showNone(scan, []);
     resolverBox().scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
