@@ -31,10 +31,11 @@
 <p style="color:var(--muted)">Houd de kaart in het kader. De scan start vanzelf.</p>
 
 <div class="camera">
-<video id="cam" autoplay playsinline muted></video>
+<video id="cam" autoplay playsinline muted webkit-playsinline></video>
 <img id="preview">
 <div class="guide" id="guide"></div>
 </div>
+<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">Geen beeld? Tik op <strong>Camera herstarten</strong>. Controleer ook de camera-toestemming van je browser.</div>
 
 <div class="auto">
 <div><strong>⚡ Automatisch scannen</strong><br><small style="color:var(--muted)">Standaard aan</small></div>
@@ -101,16 +102,79 @@ const VARIANTS=["Basic / Normaal","Holo","Reverse Holo","Poké Ball","Great Ball
 
 function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
 function schedule(ms=500){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
+async function waitForVideoReady(video,timeoutMs=5000){
+ if(video.readyState>=1 && video.videoWidth>0)return;
+ await new Promise((resolve,reject)=>{
+  let done=false;
+  const finish=(ok)=>{
+   if(done)return;done=true;
+   clearTimeout(t);
+   video.removeEventListener("loadedmetadata",onReady);
+   video.removeEventListener("canplay",onReady);
+   ok?resolve():reject(new Error("Camera gaf geen videobeeld."));
+  };
+  const onReady=()=>{ if(video.videoWidth>0)finish(true) };
+  const t=setTimeout(()=>finish(false),timeoutMs);
+  video.addEventListener("loadedmetadata",onReady,{once:false});
+  video.addEventListener("canplay",onReady,{once:false});
+ });
+}
+async function openCameraStream(){
+ if(!navigator.mediaDevices?.getUserMedia)throw new Error("Deze browser ondersteunt de camera niet.");
+ const attempts=[
+  {video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false},
+  {video:{facingMode:{ideal:"environment"}},audio:false},
+  {video:true,audio:false}
+ ];
+ let lastError=null;
+ for(const constraints of attempts){
+  try{return await navigator.mediaDevices.getUserMedia(constraints)}
+  catch(e){lastError=e}
+ }
+ throw lastError||new Error("Camera kon niet worden geopend.");
+}
 async function start(){
  clearTimeout(timer);result=null;catalogCard=null;priceInfo=null;pendingAddId=null;
  $("candidatePanel").style.display="none";$("result").style.display="none";
  $("addList").classList.remove("added-ok");$("addList").textContent="➕ Toevoegen aan kaartenlijst";$("addList").disabled=false;
+ status("Camera openen…","warn");
  try{
   if(stream)stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:720},height:{ideal:1008},aspectRatio:{ideal:0.7159}},audio:false});
-  $("cam").srcObject=stream;$("cam").style.display="block";$("preview").style.display="none";$("guide").style.display="block";
-  await $("cam").play();await initZoom();status("Houd de kaart even stil…","ok");schedule(500);
- }catch(e){status("Camera niet beschikbaar. Gebruik galerij.","bad")}
+  stream=null;
+  const video=$("cam");
+  video.pause();
+  video.srcObject=null;
+  video.setAttribute("playsinline","");
+  video.setAttribute("autoplay","");
+  video.muted=true;
+
+  stream=await openCameraStream();
+  video.srcObject=stream;
+  video.style.display="block";
+  $("preview").style.display="none";
+  $("guide").style.display="block";
+
+  try{await video.play()}catch(e){}
+  await waitForVideoReady(video,5000);
+
+  // Force one extra play after metadata on Android Chrome/Samsung browsers.
+  try{await video.play()}catch(e){}
+  await initZoom();
+
+  if(!video.videoWidth || !video.videoHeight){
+   throw new Error("Camera is geopend maar geeft geen beeld.");
+  }
+
+  status("Houd de kaart even stil…","ok");
+  schedule(700);
+ }catch(e){
+  const msg=(e?.name==="NotAllowedError")
+   ?"Camera-toegang is geblokkeerd. Sta camera toe voor deze website en laad de pagina opnieuw."
+   :(e?.name==="NotFoundError")
+   ?"Geen camera gevonden op dit apparaat."
+   :(e?.message||"Camera niet beschikbaar. Gebruik galerij.");
+  status(msg,"bad");
+ }
 }
 async function initZoom(){
  try{const t=stream.getVideoTracks()[0],c=t.getCapabilities();if(c.zoom){zmin=c.zoom.min;zmax=c.zoom.max;zstep=c.zoom.step||.1;zoom=zmin;await t.applyConstraints({advanced:[{zoom:zmin}]})}}catch(e){}
