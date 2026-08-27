@@ -1,36 +1,33 @@
-ZamexCards LIJST FIX - CAMERA OP SLOT
+ZamexCards Set/Setcode dropdown v2
 
 VERVANG ALLEEN:
-1. scanner-v4.html
-2. scanner-bridge.js
-
-CAMERA:
-NIET GEWIJZIGD.
-SHA256 camerablok vóór: 9687c4ab68bc088fc03fad94776cea5fa8a6b69e23245123c363e1efe019f862
-SHA256 camerablok ná:    9687c4ab68bc088fc03fad94776cea5fa8a6b69e23245123c363e1efe019f862
-Deze hashes zijn identiek.
-
-NIEUWE LIJSTWERKING:
-1. Scan een kaart.
-2. Kies uitvoering.
-3. Klik 'Toevoegen aan kaartenlijst'.
-4. De knop wordt direct groen:
-   ✅ Toegevoegd aan kaartenlijst
-5. Klik onderaan 'Bekijk mijn kaartenlijst in de Price Checker'.
-6. De scanner neemt de toegevoegde kaarten mee naar GitHub Pages.
-7. scanner-bridge.js importeert ze in de echte localStorage key:
-   zc_favs
-8. Daardoor verschijnen ze in 'Jouw kaartenlijst' in de Price Checker.
-
-WAAROM:
-De oude verborgen iframe-oplossing kon op mobiele browsers een aparte,
-gepartitioneerde localStorage krijgen. Daardoor kreeg de scanner wel een
-'toegevoegd'-melding, maar zag de echte Price Checker de kaart niet.
+scanner-bridge.js
 
 NIET AANRAKEN:
+- scanner-v4.html
+- cameracode
 - api/scan.js
 - lib/catalog-resolver.js
 - index.html
-- package.json
-- vercel.json
-- cameracode
+
+Wat deze versie doet:
+- Engelse sets worden uit een officiële/dynamische setcatalogus geladen.
+- Nieuwste releasedatum staat bovenaan.
+- Promo- en special sets blijven in de lijst.
+- Setcode staat rechts.
+- Speciale code-weergave o.a.:
+  Scarlet & Violet 151 -> 151
+  Black Bolt -> BLK
+  White Flare -> WHT
+  Brilliant Stars -> BRS (broncode)
+  Fusion Strike -> FST (broncode)
+- Japanse, Chinese en Koreaanse dropdown:
+  nooit meer onleesbare tekens als hoofdnaam.
+  Eerst wordt een Engelse naam geprobeerd.
+  Is die niet betrouwbaar beschikbaar, dan komt er een leesbare fallback
+  zoals 'Japanese set sv2a' in plaats van een naam in Japanse tekens.
+- Regionale sets worden per set-detail geladen zodat de echte releaseDate
+  gebruikt kan worden voor nieuwste-bovenaan.
+- Catalogus wordt 24 uur lokaal gecachet.
+
+De scanner en camera zijn niet aangepast.
