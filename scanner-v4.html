@@ -75,6 +75,12 @@
 }
 .pricechecker-link:active{transform:translateY(1px)}
 
+
+.condition-box{margin-top:14px;background:#062846;border:1px solid #31587b;border-radius:14px;padding:12px}
+.condition-box label{display:block;padding:0;margin:0 0 7px;text-align:left;font-size:14px;color:#bcd4ea;cursor:default}
+.condition-box select{width:100%;background:#0a2e51;color:#fff;border:1px solid #396487;border-radius:12px;padding:12px;font-size:16px;font-weight:800}
+.condition-help{margin-top:7px;color:#9fc4df;font-size:12px;line-height:1.35}
+
 </style>
 </head>
 <body>
@@ -133,6 +139,19 @@
 </div>
 <div class="variant-title">Welke uitvoering heb je?</div>
 <div class="variant-grid" id="variantGrid"></div>
+<div class="condition-box">
+<label for="conditionSelect">Conditie van de kaart</label>
+<select id="conditionSelect">
+<option value="Mint">Mint</option>
+<option value="Near Mint" selected>Near Mint</option>
+<option value="Excellent">Excellent</option>
+<option value="Good">Good</option>
+<option value="Light Played">Light Played</option>
+<option value="Played">Played</option>
+<option value="Poor">Poor</option>
+</select>
+<div class="condition-help">De prijs en het eindbedrag worden aangepast aan de gekozen conditie.</div>
+</div>
 <div class="pricebox">
 <div class="price-label" id="priceLabel">Gemiddelde prijs (30 dagen)</div>
 <div class="price-value" id="priceValue">€ –</div>
@@ -159,7 +178,7 @@ const RECEIVER_ORIGIN="https://zamexcards.github.io";
 const PRICECHECKER_URL="https://zamexcards.github.io/ZamexCardsPriceChecker/";
 const SCAN_QUEUE_KEY="zc_scan_queue_v1";
 let stream=null,result=null,image="",busy=false,auto=true,timer=null,zoom=1,zmin=1,zmax=1,zstep=.1;
-let catalogCard=null,selectedVariant="Basic / Normaal",priceInfo=null,pendingAddId=null;
+let catalogCard=null,selectedVariant="Basic / Normaal",selectedCondition="Near Mint",priceInfo=null,pendingAddId=null;
 const VARIANTS=["Basic / Normaal","Holo","Reverse Holo","Poké Ball","Great Ball","Master Ball"];
 
 function status(t,c=""){ $("status").className="status "+c;$("status").textContent=t }
@@ -388,7 +407,7 @@ function showCandidates(scan,candidates){
  $("candidatePanel").style.display="block";$("candidatePanel").scrollIntoView({behavior:"smooth",block:"start"})
 }
 function showConfirmed(card,scan){
- catalogCard=card;selectedVariant=guessVariant(scan.finish);$("thumb").src=imageUrl(card.image,"low")||image;
+ catalogCard=card;selectedVariant=guessVariant(scan.finish);selectedCondition="Near Mint";$("conditionSelect").value=selectedCondition;$("thumb").src=imageUrl(card.image,"low")||image;
  $("name").textContent=card.name||scan.card_name||"Onbekend";$("lang").textContent=displayLanguage(scan.language);$("finish").textContent=selectedVariant;
  $("num").textContent=collector(card)||"–";$("set").textContent=card?.set?.name||"–";$("rarity").textContent=`Rarity: ${card?.rarity||"Onbekend"}`;
  $("conf").textContent=`Herkenningszekerheid: ${Math.round(Number(scan.identity_confidence||0)*100)}%`;$("catalogNote").textContent=`Catalogus-ID: ${card.id} · set en rarity komen uit de database.`;
@@ -398,10 +417,26 @@ function renderVariants(){
  const box=$("variantGrid");box.innerHTML="";VARIANTS.forEach(v=>{const b=document.createElement("button");b.type="button";b.className="variant-btn"+(v===selectedVariant?" active":"");b.textContent=v;
  b.onclick=()=>{selectedVariant=v;$("finish").textContent=v;[...box.children].forEach(x=>x.classList.toggle("active",x===b));$("addList").classList.remove("added-ok");$("addList").textContent="➕ Toevoegen aan kaartenlijst";$("addList").disabled=false;updatePrice()};box.appendChild(b)})
 }
-function updatePrice(){priceInfo=getPriceInfo(catalogCard,selectedVariant);$("priceLabel").textContent=priceInfo.exact?"Gemiddelde prijs (30 dagen)":"Prijs / prijsindicatie";$("priceValue").textContent=money(priceInfo);$("priceSource").textContent=priceInfo.source}
+const CONDITION_MULTIPLIER={
+ "Mint":1.10,
+ "Near Mint":1.00,
+ "Excellent":0.85,
+ "Good":0.70,
+ "Light Played":0.60,
+ "Played":0.45,
+ "Poor":0.30
+};
+function conditionPrice(base,condition){
+ if(!base||base.value==null)return base;
+ const mult=CONDITION_MULTIPLIER[condition]??1;
+ if(condition==="Near Mint")return {...base,condition,conditionEstimated:false};
+ return {...base,value:Number((Number(base.value)*mult).toFixed(2)),exact:false,condition,conditionEstimated:true,
+ source:`${base.source} · conditie-indicatie ${condition} (${Math.round(mult*100)}% van Near Mint)`};
+}
+function updatePrice(){priceInfo=conditionPrice(getPriceInfo(catalogCard,selectedVariant),selectedCondition);$("priceLabel").textContent=(priceInfo.exact?"Gemiddelde prijs (30 dagen)":"Prijs / prijsindicatie")+` · ${selectedCondition}`;$("priceValue").textContent=money(priceInfo);$("priceSource").textContent=priceInfo.source}
 function listItem(){
  const c=catalogCard,lang=displayLanguage(result?.language),img=imageUrl(c?.image,"low"),p=priceInfo||getPriceInfo(c,selectedVariant);
- return{id:c.id,name:c.name||"",image:img,imageCandidates:img?[img]:[],set:c?.set?.name||"",setId:c?.set?.id||"",pokemonSetId:c?.set?.id||"",series:"",setLogo:c?.set?.logo||"",number:c?.localId||"",rarity:c?.rarity||"Onbekend",types:Array.isArray(c?.types)?c.types:[],releaseDate:c?.set?.releaseDate||"",tcgdexPricing:c?.pricing?.cardmarket||null,tcgplayerPricing:c?.pricing?.tcgplayer||null,variantsDetailed:Array.isArray(c?.variants_detailed)?c.variants_detailed:[],prices:{average30Days:p?.currency==="EUR"?p?.value:null,fallbackMarket:p?.value??null,fallbackCurrency:p?.currency||"EUR",fallbackLabel:p?.exact?"Gemiddelde prijs (30 dagen)":"Prijsindicatie",source:p?.source||"",isReal:p?.value!=null},variant:selectedVariant,language:lang,condition:"Near Mint",graded:false,gradingCompany:null,grade:null,listId:[c.id,selectedVariant,lang,"Near Mint","raw"].join("|"),quantity:1,addedViaScanner:true}
+ return{id:c.id,name:c.name||"",image:img,imageCandidates:img?[img]:[],set:c?.set?.name||"",setId:c?.set?.id||"",pokemonSetId:c?.set?.id||"",series:"",setLogo:c?.set?.logo||"",number:c?.localId||"",rarity:c?.rarity||"Onbekend",types:Array.isArray(c?.types)?c.types:[],releaseDate:c?.set?.releaseDate||"",tcgdexPricing:c?.pricing?.cardmarket||null,tcgplayerPricing:c?.pricing?.tcgplayer||null,variantsDetailed:Array.isArray(c?.variants_detailed)?c.variants_detailed:[],prices:{average30Days:p?.currency==="EUR"?p?.value:null,fallbackMarket:p?.value??null,fallbackCurrency:p?.currency||"EUR",fallbackLabel:p?.exact?"Gemiddelde prijs (30 dagen)":"Prijsindicatie",source:p?.source||"",isReal:p?.value!=null},variant:selectedVariant,language:lang,condition:selectedCondition,graded:false,gradingCompany:null,grade:null,listId:[c.id,selectedVariant,lang,selectedCondition,"raw"].join("|"),quantity:1,addedViaScanner:true}
 }
 function getScanQueue(){
  try{
@@ -508,6 +543,13 @@ $("gallery").onchange=async e=>{
 };
 $("next").onclick=()=>{$("result").style.display="none";$("candidatePanel").style.display="none";result=null;catalogCard=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
 $("addList").onclick=addToSharedList;
+$("conditionSelect").addEventListener("change",()=>{
+ selectedCondition=$("conditionSelect").value||"Near Mint";
+ $("addList").classList.remove("added-ok");
+ $("addList").textContent="➕ Toevoegen aan kaartenlijst";
+ $("addList").disabled=false;
+ updatePrice();
+});
 $("priceCheckerLink").addEventListener("click",openPriceCheckerWithList);
 start();
 </script>
