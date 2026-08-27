@@ -1,26 +1,33 @@
-ZamexCards Camera Test
+ZamexCards Scanner - werkende camera geïntegreerd
 
-UPLOAD ALLEEN DIT NIEUWE BESTAND:
-camera-test.html
+VERVANG ALLEEN:
+scanner-v4.html
 
-Plaats het in de hoofdmap van dezelfde Vercel/GitHub repository waar scanner-v4.html staat.
+Deze versie gebruikt de camerastart die aantoonbaar werkte in camera-test.html.
 
-Daarna open je:
-https://zamex-cards-price-checker.vercel.app/camera-test.html
+Behoudt:
+- Foto maken
+- Uit galerij
+- groene laadcirkel
+- kaart herkenning
+- prijs
+- toevoegen-knop
+- knop naar Price Checker
 
-Deze testpagina:
-- verandert niets aan scanner-v4.html
-- verandert niets aan AI, prijs of kaartenlijst
-- test alleen live camera
-- toont cameratoestemming/resultaat
-- toont aantal camera's
-- toont geselecteerde camera
-- toont track status
-- toont videoWidth/videoHeight
-- toont facingMode
-- heeft dropdown om handmatig camera's te kiezen
-- werkt op Android, iPhone/iPad en desktop-browsers die getUserMedia ondersteunen
+Alleen live camera is vervangen.
 
-Als het scherm zwart blijft:
-maak één screenshot waarop het cameravak, de status, technische gegevens en log zichtbaar zijn.
-Daarmee kan precies worden vastgesteld waar het probleem zit.
+Camera-volgorde:
+1. environment (ideal)
+2. environment
+3. video:true
+4. wachten op echte videoWidth/videoHeight
+5. continuous autofocus als ondersteund
+6. geen zoom forceren bij opstart
+
+NIET VERVANGEN:
+index.html
+scanner-bridge.js
+api/scan.js
+lib/catalog-resolver.js
+package.json
+vercel.json

@@ -84,7 +84,7 @@
 <p style="color:var(--muted)">Houd de kaart in het kader. De scan start vanzelf.</p>
 
 <div class="camera">
-<video id="cam" autoplay playsinline muted></video>
+<video id="cam" autoplay playsinline muted webkit-playsinline></video>
 <img id="preview">
 <div class="guide" id="guide"></div>
 <div id="scanLoading" class="scan-loading">
@@ -174,11 +174,83 @@ function hideLoading(){
  if(box)box.classList.remove("show");
 }
 function schedule(ms=1100){clearTimeout(timer);if(auto&&!busy&&!result)timer=setTimeout(()=>scan(true),ms)}
+async function waitVideoReady(video,timeout=5000){
+ if(video.videoWidth>0&&video.videoHeight>0)return true;
+ return await new Promise(resolve=>{
+  let done=false;
+  const finish=()=>{
+   if(done)return;
+   done=true;
+   clearTimeout(timer2);
+   video.removeEventListener("loadedmetadata",onReady);
+   video.removeEventListener("canplay",onReady);
+   video.removeEventListener("playing",onReady);
+   resolve(video.videoWidth>0&&video.videoHeight>0);
+  };
+  const onReady=()=>finish();
+  const timer2=setTimeout(finish,timeout);
+  video.addEventListener("loadedmetadata",onReady);
+  video.addEventListener("canplay",onReady);
+  video.addEventListener("playing",onReady);
+ });
+}
+
+async function openWorkingCamera(){
+ const attempts=[
+  {video:{facingMode:{ideal:"environment"}},audio:false},
+  {video:{facingMode:"environment"},audio:false},
+  {video:true,audio:false}
+ ];
+
+ let lastError=null;
+
+ for(let i=0;i<attempts.length;i++){
+  try{
+   const s=await navigator.mediaDevices.getUserMedia(attempts[i]);
+   const v=$("cam");
+
+   v.srcObject=s;
+   v.muted=true;
+   v.setAttribute("playsinline","");
+   v.setAttribute("autoplay","");
+   v.style.display="block";
+   v.style.visibility="visible";
+   v.style.opacity="1";
+
+   try{await v.play()}catch(e){}
+
+   const ready=await waitVideoReady(v,5000);
+
+   if(ready){
+    return s;
+   }
+
+   try{s.getTracks().forEach(t=>t.stop())}catch(e){}
+   v.pause();
+   v.srcObject=null;
+  }catch(e){
+   lastError=e;
+  }
+ }
+
+ throw lastError||new Error("Geen live camerabeeld ontvangen.");
+}
+
 async function start(){
- clearTimeout(timer);result=null;catalogCard=null;priceInfo=null;pendingAddId=null;
+ clearTimeout(timer);
+ result=null;
+ catalogCard=null;
+ priceInfo=null;
+ pendingAddId=null;
  hideLoading();
- $("candidatePanel").style.display="none";$("result").style.display="none";
- $("addList").classList.remove("added-ok");$("addList").textContent="➕ Toevoegen aan kaartenlijst";$("addList").disabled=false;
+
+ $("candidatePanel").style.display="none";
+ $("result").style.display="none";
+ $("addList").classList.remove("added-ok");
+ $("addList").textContent="➕ Toevoegen aan kaartenlijst";
+ $("addList").disabled=false;
+
+ status("Camera wordt gestart…","warn");
 
  try{
   if(stream){
@@ -186,60 +258,18 @@ async function start(){
    stream=null;
   }
 
-  const video=$("cam");
-  video.pause();
-  video.srcObject=null;
-  video.style.display="block";
-  video.style.visibility="visible";
-  video.style.opacity="1";
   $("preview").style.display="none";
   $("guide").style.display="block";
 
-  // Bewust GEEN vaste resolutie/aspect-ratio meer.
-  // Dit is dezelfde simpele camerastart als de eerdere werkende scanner.
-  stream=await navigator.mediaDevices.getUserMedia({
-   video:{facingMode:{ideal:"environment"}},
-   audio:false
-  });
-
-  video.srcObject=stream;
-  video.muted=true;
-  video.setAttribute("playsinline","");
-  video.setAttribute("autoplay","");
-
-  await video.play();
-
-  // Wacht totdat de browser echt videomaten heeft.
-  if(!video.videoWidth){
-   await new Promise((resolve,reject)=>{
-    let finished=false;
-    const done=()=>{
-     if(finished)return;
-     finished=true;
-     clearTimeout(timeout);
-     video.removeEventListener("loadedmetadata",done);
-     video.removeEventListener("canplay",done);
-     resolve();
-    };
-    const timeout=setTimeout(()=>{
-     if(finished)return;
-     finished=true;
-     video.removeEventListener("loadedmetadata",done);
-     video.removeEventListener("canplay",done);
-     reject(new Error("Geen live camerabeeld ontvangen"));
-    },4000);
-    video.addEventListener("loadedmetadata",done,{once:true});
-    video.addEventListener("canplay",done,{once:true});
-   });
-  }
+  stream=await openWorkingCamera();
 
   await initZoom();
 
-  status("Camera klaar. Houd de hele kaart binnen het kader.","ok");
+  status("Houd de hele kaart binnen het kader.","ok");
   schedule(1100);
  }catch(e){
   console.error("Camera fout:",e);
-  status("Camera kon niet worden gestart. Controleer camera-toegang voor deze website.","bad");
+  status("Camera kon niet worden gestart. Foto maken en galerij blijven beschikbaar.","bad");
  }
 }
 
@@ -250,19 +280,20 @@ async function initZoom(){
 
   const caps=track.getCapabilities?.()||{};
 
-  // Autofocus alleen instellen als de telefoon dit expliciet ondersteunt.
   if(Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")){
-   try{await track.applyConstraints({advanced:[{focusMode:"continuous"}]})}catch(e){}
+   try{
+    await track.applyConstraints({advanced:[{focusMode:"continuous"}]});
+   }catch(e){}
   }
 
-  // Alleen zoom-capaciteiten uitlezen.
-  // GEEN zoomwaarde forceren bij opstarten; dat kon op sommige Samsung-camera's
-  // een verkeerde lens / zwart beeld veroorzaken.
   if(caps.zoom){
    zmin=Number(caps.zoom.min)||1;
    zmax=Number(caps.zoom.max)||zmin;
    zstep=Number(caps.zoom.step)||.1;
-   zoom=Math.max(zmin,Math.min(zmax,1));
+
+   const settings=track.getSettings?.()||{};
+   const current=Number(settings.zoom);
+   zoom=Number.isFinite(current)?current:zmin;
   }else{
    zoom=zmin=zmax=1;
   }
