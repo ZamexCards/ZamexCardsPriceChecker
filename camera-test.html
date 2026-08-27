@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ZamexCards Camera Test</title>
+<style>
+:root{
+  --bg:#041a31;
+  --panel:#0a335c;
+  --panel2:#062643;
+  --green:#4bd45e;
+  --blue:#2fa4f2;
+  --text:#fff;
+  --muted:#b9d2e5;
+  --bad:#ff6b6b;
+  --warn:#ffc857;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#041a31,#021424);
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+.wrap{max-width:900px;margin:0 auto;padding:18px}
+h1{margin:0 0 8px;font-size:28px}
+.sub{color:var(--muted);line-height:1.5;margin-bottom:18px}
+.panel{
+  background:linear-gradient(180deg,var(--panel),#082c50);
+  border:1px solid #2d9d4b;
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:16px;
+}
+.camera-box{
+  position:relative;
+  width:min(100%,560px);
+  margin:0 auto;
+  aspect-ratio:9/16;
+  background:#020d18;
+  border-radius:18px;
+  overflow:hidden;
+  border:2px solid #2f6d9b;
+}
+video{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:#000;
+  display:block;
+}
+.guide{
+  position:absolute;
+  left:8%;
+  top:7%;
+  right:8%;
+  bottom:7%;
+  border:3px solid var(--green);
+  border-radius:24px;
+  pointer-events:none;
+}
+.controls{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:14px;
+}
+button,select{
+  width:100%;
+  border-radius:13px;
+  border:1px solid #3c6686;
+  background:#0a2948;
+  color:#fff;
+  padding:13px 12px;
+  font-size:16px;
+  font-weight:700;
+}
+button.primary{background:linear-gradient(135deg,#2fb94b,#58df67);border-color:#64ec77}
+button.blue{background:linear-gradient(135deg,#26b7c2,#2f9ef0);border-color:#57b8f2}
+button.danger{background:#4b1f2a;border-color:#a95768}
+.status{
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  background:#06213a;
+  border-left:5px solid var(--warn);
+  line-height:1.4;
+}
+.status.ok{border-left-color:var(--green)}
+.status.bad{border-left-color:var(--bad)}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.info{
+  background:var(--panel2);
+  border:1px solid #2b5272;
+  border-radius:12px;
+  padding:12px;
+}
+.info b{display:block;color:#9fc8e6;font-size:12px;margin-bottom:5px}
+.info span{font-size:16px;word-break:break-word}
+pre{
+  white-space:pre-wrap;
+  word-break:break-word;
+  background:#031527;
+  border-radius:12px;
+  padding:12px;
+  color:#dcecff;
+  max-height:260px;
+  overflow:auto;
+}
+.note{color:var(--muted);font-size:13px;line-height:1.45}
+@media(max-width:650px){
+  .grid,.controls{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ZamexCards Camera Test</h1>
+  <div class="sub">
+    Deze pagina test uitsluitend het live camerabeeld. Geen AI, geen scanner, geen prijsdata.
+    Hiermee kunnen we exact zien of Android, iPhone/iPad of pc de camera goed doorgeeft.
+  </div>
+
+  <section class="panel">
+    <div class="camera-box">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="guide"></div>
+    </div>
+
+    <div id="status" class="status">Nog niet gestart.</div>
+
+    <div class="controls">
+      <button id="startBtn" class="primary">📷 Camera starten</button>
+      <button id="stopBtn" class="danger">⏹ Camera stoppen</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <label for="cameraSelect" class="note">Camera kiezen</label>
+      <select id="cameraSelect">
+        <option value="">Automatisch / achtercamera</option>
+      </select>
+    </div>
+
+    <div class="controls">
+      <button id="refreshBtn" class="blue">🔄 Camera's opnieuw zoeken</button>
+      <button id="switchBtn">🔁 Volgende camera</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="grid">
+      <div class="info"><b>HTTPS / veilige context</b><span id="secure">-</span></div>
+      <div class="info"><b>Browser / platform</b><span id="browser">-</span></div>
+      <div class="info"><b>Camera API beschikbaar</b><span id="api">-</span></div>
+      <div class="info"><b>Aantal camera's</b><span id="count">-</span></div>
+      <div class="info"><b>Geselecteerde camera</b><span id="selected">-</span></div>
+      <div class="info"><b>Track status</b><span id="trackState">-</span></div>
+      <div class="info"><b>Video resolutie</b><span id="resolution">-</span></div>
+      <div class="info"><b>Facing mode</b><span id="facing">-</span></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">Technische log</h2>
+    <pre id="log">Nog geen log.</pre>
+    <p class="note">
+      Als het videovak zwart blijft, stuur dan een screenshot van deze pagina waarop ook de technische gegevens en log zichtbaar zijn.
+      Dan kunnen we precies zien of het om toestemming, camera-keuze, browsergedrag of videoweergave gaat.
+    </p>
+  </section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let stream=null;
+let devices=[];
+let currentDeviceId="";
+
+function log(msg){
+  const t=new Date().toLocaleTimeString();
+  $("log").textContent = `[${t}] ${msg}\n` + ($("log").textContent==="Nog geen log."?"":$("log").textContent);
+}
+function setStatus(msg,type=""){
+  $("status").className="status "+type;
+  $("status").textContent=msg;
+}
+function uaSummary(){
+  const ua=navigator.userAgent;
+  if(/Android/i.test(ua)) return "Android · "+ua;
+  if(/iPhone|iPad|iPod/i.test(ua)) return "iOS/iPadOS · "+ua;
+  if(/Windows/i.test(ua)) return "Windows · "+ua;
+  if(/Macintosh|Mac OS X/i.test(ua)) return "macOS · "+ua;
+  return ua;
+}
+function updateBaseInfo(){
+  $("secure").textContent = window.isSecureContext ? "Ja" : "Nee";
+  $("browser").textContent = uaSummary();
+  $("api").textContent = !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia) ? "Ja" : "Nee";
+}
+async function listCameras(){
+  try{
+    const all=await navigator.mediaDevices.enumerateDevices();
+    devices=all.filter(d=>d.kind==="videoinput");
+    $("count").textContent=String(devices.length);
+    const sel=$("cameraSelect");
+    const current=sel.value;
+    sel.innerHTML='<option value="">Automatisch / achtercamera</option>';
+    devices.forEach((d,i)=>{
+      const o=document.createElement("option");
+      o.value=d.deviceId;
+      o.textContent=d.label||`Camera ${i+1}`;
+      sel.appendChild(o);
+    });
+    if([...sel.options].some(o=>o.value===current)) sel.value=current;
+    log(`Camera's gevonden: ${devices.length}`);
+  }catch(e){
+    log("enumerateDevices fout: "+e.name+" - "+e.message);
+  }
+}
+function stopCamera(){
+  if(stream){
+    stream.getTracks().forEach(t=>t.stop());
+    stream=null;
+  }
+  const v=$("video");
+  v.pause();
+  v.srcObject=null;
+  $("trackState").textContent="-";
+  $("resolution").textContent="-";
+  $("facing").textContent="-";
+  setStatus("Camera gestopt.");
+  log("Camera gestopt.");
+}
+async function waitVideoReady(video,timeout=5000){
+  if(video.videoWidth>0&&video.videoHeight>0)return true;
+  return await new Promise(resolve=>{
+    let done=false;
+    const finish=()=>{
+      if(done)return;
+      done=true;
+      clearTimeout(timer);
+      video.removeEventListener("loadedmetadata",onReady);
+      video.removeEventListener("canplay",onReady);
+      video.removeEventListener("playing",onReady);
+      resolve(video.videoWidth>0&&video.videoHeight>0);
+    };
+    const onReady=()=>finish();
+    const timer=setTimeout(finish,timeout);
+    video.addEventListener("loadedmetadata",onReady);
+    video.addEventListener("canplay",onReady);
+    video.addEventListener("playing",onReady);
+  });
+}
+async function startCamera(){
+  stopCamera();
+
+  if(!window.isSecureContext){
+    setStatus("Deze pagina draait niet in een veilige HTTPS-context.","bad");
+    log("Geen secure context.");
+    return;
+  }
+  if(!navigator.mediaDevices?.getUserMedia){
+    setStatus("Deze browser ondersteunt getUserMedia niet.","bad");
+    log("getUserMedia ontbreekt.");
+    return;
+  }
+
+  const selected=$("cameraSelect").value;
+  const attempts=[];
+
+  if(selected){
+    attempts.push({video:{deviceId:{exact:selected}},audio:false});
+  }else{
+    attempts.push({video:{facingMode:{ideal:"environment"}},audio:false});
+    attempts.push({video:{facingMode:"environment"},audio:false});
+    attempts.push({video:true,audio:false});
+  }
+
+  let lastError=null;
+  for(let i=0;i<attempts.length;i++){
+    try{
+      setStatus(`Camera starten… poging ${i+1}/${attempts.length}`,"");
+      log("getUserMedia poging "+(i+1)+": "+JSON.stringify(attempts[i]));
+      stream=await navigator.mediaDevices.getUserMedia(attempts[i]);
+
+      const v=$("video");
+      v.srcObject=stream;
+      v.muted=true;
+      v.setAttribute("playsinline","");
+      try{await v.play()}catch(e){log("video.play waarschuwing: "+e.name+" - "+e.message)}
+
+      const ready=await waitVideoReady(v,5000);
+      const track=stream.getVideoTracks()[0];
+      const settings=track?.getSettings?.()||{};
+
+      $("selected").textContent=track?.label||selected||"Onbekend";
+      $("trackState").textContent=track?.readyState||"-";
+      $("resolution").textContent=`${v.videoWidth||0} × ${v.videoHeight||0}`;
+      $("facing").textContent=settings.facingMode||"-";
+      currentDeviceId=settings.deviceId||selected||"";
+
+      if(ready){
+        setStatus("✅ Live camerabeeld actief.","ok");
+        log(`Camera actief: ${track?.label||"onbekend"} · ${v.videoWidth}x${v.videoHeight} · ${settings.facingMode||"geen facingMode"}`);
+        await listCameras();
+        if(currentDeviceId&&[...$("cameraSelect").options].some(o=>o.value===currentDeviceId)){
+          $("cameraSelect").value=currentDeviceId;
+        }
+        return;
+      }else{
+        log("Stream geopend maar videoWidth/videoHeight bleven 0.");
+        stream.getTracks().forEach(t=>t.stop());
+        stream=null;
+      }
+    }catch(e){
+      lastError=e;
+      log(`Poging ${i+1} fout: ${e.name} - ${e.message}`);
+      if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+    }
+  }
+
+  const name=lastError?.name||"Onbekende fout";
+  const msg=lastError?.message||"Geen videobeeld ontvangen";
+  setStatus(`❌ Camera start mislukt: ${name} — ${msg}`,"bad");
+}
+async function nextCamera(){
+  await listCameras();
+  if(!devices.length)return;
+  const idx=Math.max(-1,devices.findIndex(d=>d.deviceId===$("cameraSelect").value));
+  const next=devices[(idx+1)%devices.length];
+  $("cameraSelect").value=next.deviceId;
+  await startCamera();
+}
+
+$("startBtn").onclick=startCamera;
+$("stopBtn").onclick=stopCamera;
+$("refreshBtn").onclick=listCameras;
+$("switchBtn").onclick=nextCamera;
+$("cameraSelect").onchange=()=>startCamera();
+
+updateBaseInfo();
+listCameras();
+
+navigator.mediaDevices?.addEventListener?.("devicechange",()=>{
+  log("devicechange event ontvangen.");
+  listCameras();
+});
+</script>
+</body>
+</html>
