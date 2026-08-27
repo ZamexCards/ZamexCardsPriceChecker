@@ -1,54 +1,76 @@
 /*
- ZamexCards scanner list handoff.
- Scanner is on Vercel; Price Checker is on GitHub Pages.
+ ZamexCards scanner -> Price Checker handoff
+ Camera/scanner code is NOT involved here.
 */
 (function(){
-  const KEY="zc_favs";
+  const FAVS_KEY="zc_favs";
 
-  function decodePayload(s){
+  function decodeTransfer(raw){
     try{
-      s=String(s||"").replace(/-/g,"+").replace(/_/g,"/");
+      let s=String(raw||"").replace(/-/g,"+").replace(/_/g,"/");
       while(s.length%4)s+="=";
       const binary=atob(s);
       const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
       return JSON.parse(new TextDecoder().decode(bytes));
-    }catch(e){return null}
+    }catch(e){
+      console.error("ZamexCards scanner import decode error",e);
+      return null;
+    }
   }
 
-  function getFavs(){
+  function readFavs(){
     try{
-      const x=JSON.parse(localStorage.getItem(KEY)||"[]");
-      return Array.isArray(x)?x:[];
+      const value=JSON.parse(localStorage.getItem(FAVS_KEY)||"[]");
+      return Array.isArray(value)?value:[];
     }catch(e){return[]}
   }
 
-  function mergeImport(items){
-    const favs=getFavs();
+  function writeFavs(favs){
+    localStorage.setItem(FAVS_KEY,JSON.stringify(favs));
+  }
+
+  function importScans(items){
+    const favs=readFavs();
+    let imported=0;
 
     for(const x of items){
       if(!x||!x.k||!x.i||!x.n)continue;
-      const qty=Math.max(1,Number(x.q)||1);
-      const old=favs.find(f=>f.listId===x.k);
 
-      if(old){
-        old.quantity=Math.max(1,Number(old.quantity)||1)+qty;
+      const qty=Math.max(1,Number(x.q)||1);
+      const existing=favs.find(f=>f.listId===x.k);
+
+      if(existing){
+        existing.quantity=Math.max(1,Number(existing.quantity)||1)+qty;
+        existing.addedViaScanner=true;
+
         if(x.p!=null){
-          old.prices=old.prices||{};
-          old.prices.average30Days=x.cu==="EUR"?Number(x.p):old.prices.average30Days;
-          old.prices.fallbackMarket=Number(x.p);
-          old.prices.fallbackCurrency=x.cu||"EUR";
-          old.prices.fallbackLabel=x.pl||"Prijsindicatie";
-          old.prices.source=x.ps||"Scanner";
-          old.prices.isReal=true;
+          existing.prices=existing.prices||{};
+          if(x.cu==="EUR")existing.prices.average30Days=Number(x.p);
+          existing.prices.fallbackMarket=Number(x.p);
+          existing.prices.fallbackCurrency=x.cu||"EUR";
+          existing.prices.fallbackLabel=x.pl||"Prijsindicatie";
+          existing.prices.source=x.ps||"Scanner";
+          existing.prices.isReal=true;
         }
-        old.addedViaScanner=true;
+
+        imported+=qty;
         continue;
       }
 
       favs.push({
-        id:x.i,name:x.n,image:x.m||"",imageCandidates:x.m?[x.m]:[],
-        set:x.s||"",setId:x.si||"",pokemonSetId:x.si||"",series:"",
-        setLogo:"",number:x.no||"",rarity:x.r||"Onbekend",types:[],releaseDate:"",
+        id:x.i,
+        name:x.n,
+        image:x.m||"",
+        imageCandidates:x.m?[x.m]:[],
+        set:x.s||"",
+        setId:x.si||"",
+        pokemonSetId:x.si||"",
+        series:"",
+        setLogo:"",
+        number:x.no||"",
+        rarity:x.r||"Onbekend",
+        types:[],
+        releaseDate:"",
         prices:{
           average30Days:(x.cu==="EUR"&&x.p!=null)?Number(x.p):null,
           fallbackMarket:x.p!=null?Number(x.p):null,
@@ -57,38 +79,50 @@
           source:x.ps||"Scanner",
           isReal:x.p!=null
         },
-        variant:x.v||"Standard",language:x.l||"English",condition:x.c||"Near Mint",
-        graded:false,gradingCompany:null,grade:null,listId:x.k,quantity:qty,addedViaScanner:true
+        variant:x.v||"Standard",
+        language:x.l||"English",
+        condition:x.c||"Near Mint",
+        graded:false,
+        gradingCompany:null,
+        grade:null,
+        listId:x.k,
+        quantity:qty,
+        addedViaScanner:true
       });
+      imported+=qty;
     }
 
-    localStorage.setItem(KEY,JSON.stringify(favs));
-    return favs
+    writeFavs(favs);
+    return imported;
   }
 
-  function importFromUrl(){
-    const p=new URLSearchParams(location.search);
-    const raw=p.get("zcimport");
+  function runImport(){
+    const params=new URLSearchParams(location.search);
+    const raw=params.get("zcimport");
     if(!raw)return;
 
-    const items=decodePayload(raw);
+    const items=decodeTransfer(raw);
     if(Array.isArray(items)&&items.length){
-      mergeImport(items);
-      try{if(typeof renderFavorites==="function")renderFavorites()}catch(e){}
+      const imported=importScans(items);
+
+      // Refresh existing Price Checker UI if its functions are available.
+      try{ if(typeof renderFavorites==="function")renderFavorites(); }catch(e){}
       try{
         if(typeof showToast==="function"){
-          const total=items.reduce((s,x)=>s+Math.max(1,Number(x?.q)||1),0);
-          showToast(`${total} gescande kaart${total===1?"":"en"} toegevoegd aan jouw kaartenlijst.`)
+          showToast(`${imported} gescande kaart${imported===1?"":"en"} toegevoegd aan jouw kaartenlijst.`);
         }
       }catch(e){}
     }
 
-    history.replaceState({},document.title,location.pathname+location.hash)
+    // Clean the payload from the address bar after import.
+    try{
+      history.replaceState({},document.title,location.pathname+location.hash);
+    }catch(e){}
   }
 
   if(document.readyState==="loading"){
-    document.addEventListener("DOMContentLoaded",()=>setTimeout(importFromUrl,0))
+    document.addEventListener("DOMContentLoaded",()=>setTimeout(runImport,50));
   }else{
-    setTimeout(importFromUrl,0)
+    setTimeout(runImport,50);
   }
 })();

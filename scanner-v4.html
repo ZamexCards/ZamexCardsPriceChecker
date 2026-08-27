@@ -146,18 +146,18 @@
 </section>
 
 <div class="pricechecker-link-wrap">
-<a class="pricechecker-link" href="https://zamexcards.github.io/ZamexCardsPriceChecker/">
+<a id="priceCheckerLink" class="pricechecker-link" href="https://zamexcards.github.io/ZamexCardsPriceChecker/">
   💚 Bekijk mijn kaartenlijst in de Price Checker
 </a>
 </div>
 
-<iframe id="listReceiver" src="https://zamexcards.github.io/ZamexCardsPriceChecker/list-receiver.html"
-title="ZamexCards kaartenlijst koppeling" style="display:none;width:0;height:0;border:0"></iframe>
 </div>
 
 <script>
 const $=id=>document.getElementById(id),API="/api/scan";
 const RECEIVER_ORIGIN="https://zamexcards.github.io";
+const PRICECHECKER_URL="https://zamexcards.github.io/ZamexCardsPriceChecker/";
+const SCAN_QUEUE_KEY="zc_scan_queue_v1";
 let stream=null,result=null,image="",busy=false,auto=true,timer=null,zoom=1,zmin=1,zmax=1,zstep=.1;
 let catalogCard=null,selectedVariant="Basic / Normaal",priceInfo=null,pendingAddId=null;
 const VARIANTS=["Basic / Normaal","Holo","Reverse Holo","Poké Ball","Great Ball","Master Ball"];
@@ -403,17 +403,88 @@ function listItem(){
  const c=catalogCard,lang=displayLanguage(result?.language),img=imageUrl(c?.image,"low"),p=priceInfo||getPriceInfo(c,selectedVariant);
  return{id:c.id,name:c.name||"",image:img,imageCandidates:img?[img]:[],set:c?.set?.name||"",setId:c?.set?.id||"",pokemonSetId:c?.set?.id||"",series:"",setLogo:c?.set?.logo||"",number:c?.localId||"",rarity:c?.rarity||"Onbekend",types:Array.isArray(c?.types)?c.types:[],releaseDate:c?.set?.releaseDate||"",tcgdexPricing:c?.pricing?.cardmarket||null,tcgplayerPricing:c?.pricing?.tcgplayer||null,variantsDetailed:Array.isArray(c?.variants_detailed)?c.variants_detailed:[],prices:{average30Days:p?.currency==="EUR"?p?.value:null,fallbackMarket:p?.value??null,fallbackCurrency:p?.currency||"EUR",fallbackLabel:p?.exact?"Gemiddelde prijs (30 dagen)":"Prijsindicatie",source:p?.source||"",isReal:p?.value!=null},variant:selectedVariant,language:lang,condition:"Near Mint",graded:false,gradingCompany:null,grade:null,listId:[c.id,selectedVariant,lang,"Near Mint","raw"].join("|"),quantity:1,addedViaScanner:true}
 }
-function addToSharedList(){
- if(!catalogCard)return;const i=$("listReceiver");if(!i?.contentWindow){status("Kaartenlijst-koppeling is nog niet klaar.","warn");return}
- const requestId=`zc_${Date.now()}_${Math.random().toString(36).slice(2)}`;pendingAddId=requestId;i.contentWindow.postMessage({type:"ZC_ADD_TO_LIST",requestId,item:listItem()},RECEIVER_ORIGIN);
- $("addList").disabled=true;$("addList").textContent="Toevoegen…";
- setTimeout(()=>{if(pendingAddId===requestId){pendingAddId=null;$("addList").disabled=false;$("addList").textContent="➕ Toevoegen aan kaartenlijst";status("Toevoegen duurde te lang. Probeer nogmaals.","warn")}},5000)
+function getScanQueue(){
+ try{
+  const q=JSON.parse(localStorage.getItem(SCAN_QUEUE_KEY)||"[]");
+  return Array.isArray(q)?q:[];
+ }catch(e){return[]}
 }
-window.addEventListener("message",e=>{
- if(e.origin!==RECEIVER_ORIGIN||e.data?.type!=="ZC_LIST_ACK"||e.data?.requestId!==pendingAddId)return;pendingAddId=null;
- if(e.data.ok){$("addList").classList.add("added-ok");$("addList").textContent=`✅ Toegevoegd aan kaartenlijst${e.data.quantity>1?` (${e.data.quantity}×)`:""}`;$("addList").disabled=true;$("addNote").textContent="✅ Deze kaart staat nu in de kaartenlijst van de Price Checker.";status("Kaart toegevoegd aan jouw kaartenlijst.","ok")}
- else{$("addList").disabled=false;$("addList").textContent="➕ Toevoegen aan kaartenlijst";status(e.data.error||"Toevoegen is mislukt.","bad")}
-});
+function saveScanQueue(q){
+ localStorage.setItem(SCAN_QUEUE_KEY,JSON.stringify(q));
+}
+function compactForTransfer(item){
+ const p=item?.prices||{};
+ const price=p.average30Days!=null?p.average30Days:p.fallbackMarket;
+ return {
+  k:item.listId,
+  i:item.id,
+  n:item.name,
+  m:item.image||"",
+  s:item.set||"",
+  si:item.setId||item.pokemonSetId||"",
+  no:item.number||"",
+  r:item.rarity||"Onbekend",
+  v:item.variant||"Standard",
+  l:item.language||"English",
+  c:item.condition||"Near Mint",
+  p:price!=null?Number(price):null,
+  cu:p.fallbackCurrency||"EUR",
+  pl:p.fallbackLabel||"Gemiddelde prijs (30 dagen)",
+  ps:p.source||"Scanner",
+  q:1
+ };
+}
+function addToSharedList(){
+ if(!catalogCard)return;
+
+ const item=listItem();
+ if(!item?.id||!item?.listId){
+  status("Kaart kon niet aan de kaartenlijst worden toegevoegd.","bad");
+  return;
+ }
+
+ const transfer=compactForTransfer(item);
+ const queue=getScanQueue();
+ const old=queue.find(x=>x.k===transfer.k);
+ let quantity=1;
+
+ if(old){
+  old.q=Math.max(1,Number(old.q)||1)+1;
+  old.p=transfer.p;
+  old.cu=transfer.cu;
+  old.pl=transfer.pl;
+  old.ps=transfer.ps;
+  quantity=old.q;
+ }else{
+  queue.push(transfer);
+ }
+
+ saveScanQueue(queue);
+
+ // Direct feedback in the scanner.
+ $("addList").classList.add("added-ok");
+ $("addList").textContent=`✅ Toegevoegd aan kaartenlijst${quantity>1?` (${quantity}×)`:""}`;
+ $("addList").disabled=true;
+ $("addNote").textContent="✅ Toegevoegd. Open hieronder de Price Checker om de scanlijst over te zetten.";
+ status("Kaart toegevoegd aan jouw scanlijst.","ok");
+}
+function encodeScanQueue(queue){
+ const json=JSON.stringify(queue);
+ const bytes=new TextEncoder().encode(json);
+ let binary="";
+ for(const b of bytes)binary+=String.fromCharCode(b);
+ return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function openPriceCheckerWithList(e){
+ const queue=getScanQueue();
+ if(!queue.length)return;
+
+ e.preventDefault();
+ const payload=encodeScanQueue(queue);
+
+ // Transfer happens in top-level github.io context, where the real zc_favs list lives.
+ window.location.href=PRICECHECKER_URL+"?zcimport="+encodeURIComponent(payload);
+}
 $("manual").onclick=()=>scan(false);$("minus").onclick=()=>zoomBy(-1);$("plus").onclick=()=>zoomBy(1);$("restart").onclick=start;
 $("toggle").onclick=()=>{auto=!auto;$("toggle").classList.toggle("off",!auto);status(auto?"Automatisch scannen aan.":"Automatisch scannen uit.","ok");if(auto)schedule(700);else clearTimeout(timer)};
 $("photo").onchange=async e=>{
@@ -436,7 +507,9 @@ $("gallery").onchange=async e=>{
  rd.readAsDataURL(f);
 };
 $("next").onclick=()=>{$("result").style.display="none";$("candidatePanel").style.display="none";result=null;catalogCard=null;image="";start();scrollTo({top:0,behavior:"smooth"})};
-$("addList").onclick=addToSharedList;start();
+$("addList").onclick=addToSharedList;
+$("priceCheckerLink").addEventListener("click",openPriceCheckerWithList);
+start();
 </script>
 </body>
 </html>
